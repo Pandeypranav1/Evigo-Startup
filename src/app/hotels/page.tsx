@@ -75,7 +75,7 @@ function HotelBookingModal({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6"
       style={{
         background: "rgba(0,0,0,0.6)",
         backdropFilter: "blur(8px)",
@@ -83,7 +83,7 @@ function HotelBookingModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 w-full max-w-[500px] relative"
+        className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 md:p-8 w-full max-w-[500px] relative max-h-[90vh] overflow-y-auto"
         style={{ boxShadow: "0 40px 100px rgba(0,0,0,0.3)" }}
       >
         <button

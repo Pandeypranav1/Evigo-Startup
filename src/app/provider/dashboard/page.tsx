@@ -1312,14 +1312,14 @@ export default function ProviderDashboard() {
 
                       <span
                         className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${svc.is_available
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-zinc-100 text-zinc-500 border border-zinc-200"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-zinc-100 text-zinc-500 border border-zinc-200"
                           }`}
                       >
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${svc.is_available
-                              ? "bg-emerald-500"
-                              : "bg-zinc-400"
+                            ? "bg-emerald-500"
+                            : "bg-zinc-400"
                             }`}
                         />
 
@@ -1358,8 +1358,8 @@ export default function ProviderDashboard() {
                         togglingService === svc.id
                       }
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${svc.is_available
-                          ? "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
-                          : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        ? "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
                         }`}
                     >
                       {togglingService === svc.id ? (
@@ -1437,14 +1437,14 @@ export default function ProviderDashboard() {
 
                         <span
                           className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase ${isConfirmed
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                              : isCompleted
-                                ? "bg-violet-100 text-violet-800 border border-violet-200"
-                                : isRejected
-                                  ? "bg-red-100 text-red-800 border border-red-200"
-                                  : isCancelled
-                                    ? "bg-slate-200 text-slate-700 border border-slate-300"
-                                    : "bg-amber-100 text-amber-800 border border-amber-200"
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            : isCompleted
+                              ? "bg-violet-100 text-violet-800 border border-violet-200"
+                              : isRejected
+                                ? "bg-red-100 text-red-800 border border-red-200"
+                                : isCancelled
+                                  ? "bg-slate-200 text-slate-700 border border-slate-300"
+                                  : "bg-amber-100 text-amber-800 border border-amber-200"
                             }`}
                         >
                           {itemStatus}
@@ -1686,8 +1686,8 @@ export default function ProviderDashboard() {
                     setActiveFilter(tab.id)
                   }
                   className={`px-3 py-1 rounded-xl text-xs font-extrabold transition-all ${activeFilter === tab.id
-                      ? "bg-white text-zinc-900 shadow-sm"
-                      : "text-zinc-600 hover:text-zinc-900 hover:bg-white/50"
+                    ? "bg-white text-zinc-900 shadow-sm"
+                    : "text-zinc-600 hover:text-zinc-900 hover:bg-white/50"
                     }`}
                 >
                   {tab.label}{" "}
@@ -2375,8 +2375,8 @@ export default function ProviderDashboard() {
                   className={`p-3 rounded-xl text-xs font-semibold ${profileMessage.startsWith(
                     "Error"
                   )
-                      ? "bg-rose-50 border border-rose-200 text-rose-800"
-                      : "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                    ? "bg-rose-50 border border-rose-200 text-rose-800"
+                    : "bg-emerald-50 border border-emerald-200 text-emerald-800"
                     }`}
                 >
                   {profileMessage}

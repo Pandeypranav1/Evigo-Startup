@@ -32,7 +32,7 @@ export function PageContainer({
     <Component
       id={id}
       style={style}
-      className={`w-full max-w-[1280px] mx-auto px-6 md:px-12 box-border ${className}`}
+      className={`w-full max-w-[1280px] mx-auto px-4 sm:px-6 md:px-12 box-border ${className}`}
     >
       {children}
     </Component>
