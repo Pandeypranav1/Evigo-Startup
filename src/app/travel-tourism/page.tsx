@@ -24,8 +24,10 @@ function TourismImage({
     objectPosition?: string;
 }) {
     const [hasError, setHasError] = useState(false);
+    const [hasFallbackError, setHasFallbackError] = useState(false);
+    const imageSrc = hasError ? "/tourism/patna_gandhi_ghat_evening.jpg" : src;
 
-    if (hasError) {
+    if (hasError && hasFallbackError) {
         return (
             <div
                 role="img"
@@ -43,12 +45,15 @@ function TourismImage({
 
     return (
         <Image
-            src={src}
-            alt={alt}
+            src={imageSrc}
+            alt={hasError ? `${alt} — Bihar riverfront fallback photo` : alt}
             fill
             loading={loading}
-            unoptimized={src.startsWith("https://")}
-            onError={() => setHasError(true)}
+            unoptimized={imageSrc.startsWith("https://")}
+            onError={() => {
+                if (hasError) setHasFallbackError(true);
+                else setHasError(true);
+            }}
             sizes={sizes}
             style={objectPosition ? { objectPosition } : undefined}
             className={className}
@@ -80,13 +85,24 @@ export default function TravelTourismPage() {
     });
     const [searchError, setSearchError] = useState("");
 
-    // Auto-rotate hero slider every 4.5 seconds
+    const [isPaused, setIsPaused] = useState(false);
+
     useEffect(() => {
-        const interval = setInterval(() => {
+        if (isPaused) return;
+
+        const timeout = setTimeout(() => {
             setCurrentSlide((prev) => (prev + 1) % HERO_SLIDER_IMAGES.length);
         }, 4500);
-        return () => clearInterval(interval);
-    }, []);
+        return () => clearTimeout(timeout);
+    }, [currentSlide, isPaused]);
+
+    const showPreviousSlide = () => {
+        setCurrentSlide((previous) => (previous - 1 + HERO_SLIDER_IMAGES.length) % HERO_SLIDER_IMAGES.length);
+    };
+
+    const showNextSlide = () => {
+        setCurrentSlide((previous) => (previous + 1) % HERO_SLIDER_IMAGES.length);
+    };
 
     const handleSearch = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -113,21 +129,40 @@ export default function TravelTourismPage() {
 
     return (
         <main className="flex-1 bg-white">
-            {/* Hero Section with Auto Image Slider - Sunset Atmosphere */}
-            <section className="relative min-h-[600px] overflow-hidden sm:min-h-[650px] lg:min-h-[700px]">
-                {/* Keep only the active slide mounted so hidden images cannot stack. */}
-                {HERO_SLIDER_IMAGES[currentSlide] && (
-                    <div key={HERO_SLIDER_IMAGES[currentSlide].src} className="absolute inset-0">
-                        <TourismImage
-                            src={HERO_SLIDER_IMAGES[currentSlide].src}
-                            alt={HERO_SLIDER_IMAGES[currentSlide].alt}
-                            loading="eager"
-                            className="object-cover"
-                            sizes="100vw"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-orange-900/40 via-orange-800/30 to-black/60" />
-                    </div>
-                )}
+            {/* Hero section with the destination carousel */}
+            <section
+                className="relative min-h-[600px] overflow-hidden sm:min-h-[650px] lg:min-h-[700px]"
+                role="region"
+                aria-label="Bihar destination highlights"
+                aria-roledescription="carousel"
+                onMouseEnter={() => setIsPaused(true)}
+                onMouseLeave={() => setIsPaused(false)}
+            >
+                {HERO_SLIDER_IMAGES.map((slide, index) => {
+                    const isActive = index === currentSlide;
+                    const isNearActive = index === currentSlide
+                        || index === (currentSlide + 1) % HERO_SLIDER_IMAGES.length
+                        || index === (currentSlide - 1 + HERO_SLIDER_IMAGES.length) % HERO_SLIDER_IMAGES.length;
+
+                    return (
+                        <div
+                            key={slide.src}
+                            aria-hidden={!isActive}
+                            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out motion-reduce:transition-none ${
+                                isActive ? "opacity-100" : "pointer-events-none opacity-0"
+                            }`}
+                        >
+                            <TourismImage
+                                src={slide.src}
+                                alt={slide.alt}
+                                loading={isNearActive ? "eager" : "lazy"}
+                                className="object-cover object-center"
+                                sizes="100vw"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-b from-[#061426]/45 via-[#061426]/30 to-[#061426]/75" />
+                        </div>
+                    );
+                })}
 
                 {/* Hero Content - Left Aligned */}
                 <div className="relative z-10 flex min-h-[600px] flex-col justify-center px-4 py-12 sm:min-h-[650px] sm:py-16 lg:min-h-[700px]">
@@ -138,6 +173,16 @@ export default function TravelTourismPage() {
                         <p className="mb-8 max-w-2xl text-base leading-relaxed text-white/95 drop-shadow-lg sm:mb-10 sm:text-lg md:text-xl">
                             Explore ancient heritage, spiritual destinations, vibrant culture and natural beauty.
                         </p>
+
+                        <div className="mb-7 min-h-12 max-w-2xl" aria-live="polite" aria-atomic="true">
+                            <p className="text-sm font-bold text-white sm:text-base">
+                                <span className="mr-2 text-orange-400" aria-hidden="true">●</span>
+                                {HERO_SLIDER_IMAGES[currentSlide].title}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-white/80 sm:text-sm">
+                                {HERO_SLIDER_IMAGES[currentSlide].subtitle}
+                            </p>
+                        </div>
 
                         {/* Hero Highlight Cards */}
                         <div className="mb-8 flex flex-wrap gap-3 sm:gap-4">
@@ -245,20 +290,41 @@ export default function TravelTourismPage() {
                     </Container>
                 </div>
 
-                {/* Slider Indicators */}
-                <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-                    {HERO_SLIDER_IMAGES.map((_, index) => (
-                        <button
-                            key={index}
-                            type="button"
-                            onClick={() => setCurrentSlide(index)}
-                            className={`h-2 rounded-full transition-all ${
-                                index === currentSlide ? "bg-white w-10" : "bg-white/50 hover:bg-white/70 w-2"
-                            }`}
-                            aria-label={`Go to slide ${index + 1}`}
-                            aria-pressed={index === currentSlide}
-                        />
-                    ))}
+                <div className="absolute inset-x-0 bottom-3 z-20 flex items-center justify-between px-4 sm:px-6">
+                    <button
+                        type="button"
+                        onClick={showPreviousSlide}
+                        className="grid h-10 w-10 place-items-center rounded-full border border-white/35 bg-[#081629]/60 text-white shadow-lg backdrop-blur-sm transition hover:bg-[#081629]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                        aria-label="Previous destination"
+                    >
+                        <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m15 18-6-6 6-6" />
+                        </svg>
+                    </button>
+                    <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2">
+                        {HERO_SLIDER_IMAGES.map((slide, index) => (
+                            <button
+                                key={slide.src}
+                                type="button"
+                                onClick={() => setCurrentSlide(index)}
+                                className={`h-2.5 rounded-full transition-all ${
+                                    index === currentSlide ? "w-8 bg-white" : "w-2.5 bg-white/55 hover:bg-white/80"
+                                }`}
+                                aria-label={`Go to ${slide.title}`}
+                                aria-pressed={index === currentSlide}
+                            />
+                        ))}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={showNextSlide}
+                        className="grid h-10 w-10 place-items-center rounded-full border border-white/35 bg-[#081629]/60 text-white shadow-lg backdrop-blur-sm transition hover:bg-[#081629]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                        aria-label="Next destination"
+                    >
+                        <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m9 18 6-6-6-6" />
+                        </svg>
+                    </button>
                 </div>
                 {HERO_SLIDER_IMAGES[currentSlide]?.imageAttribution && (
                     <a
@@ -266,7 +332,7 @@ export default function TravelTourismPage() {
                         target="_blank"
                         rel="noreferrer"
                         aria-label={`Hero photo credit: ${HERO_SLIDER_IMAGES[currentSlide].imageAttribution?.name}, ${HERO_SLIDER_IMAGES[currentSlide].imageAttribution?.license}`}
-                        className="absolute bottom-3 right-4 z-20 max-w-[42%] truncate text-right text-[10px] leading-4 text-white/80 underline underline-offset-2 hover:text-white sm:right-6"
+                        className="absolute right-4 top-4 z-20 max-w-[42%] truncate rounded bg-[#081629]/45 px-2 py-1 text-right text-[10px] leading-4 text-white/80 underline underline-offset-2 hover:text-white sm:right-6"
                     >
                         Photo: {HERO_SLIDER_IMAGES[currentSlide].imageAttribution?.name} ·{" "}
                         {HERO_SLIDER_IMAGES[currentSlide].imageAttribution?.license}

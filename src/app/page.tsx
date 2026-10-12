@@ -50,8 +50,8 @@ export default function Home() {
         <main className="flex-1 bg-white">
             <section className="relative isolate min-h-[570px] overflow-hidden bg-[#081629] text-white sm:min-h-[620px]">
                 <Image
-                    src="/tourism/patna_ganga_ghat.jpg"
-                    alt="Ganga riverfront at Patna, Bihar"
+                    src="/tourism/patna_gandhi_ghat_evening.jpg"
+                    alt="Evening view of the Ganga and Digha-Sonpur Bridge from Gandhi Ghat, Patna"
                     fill
                     priority
                     sizes="100vw"
@@ -96,6 +96,15 @@ export default function Home() {
                             </span>
                         </div>
                     </div>
+                    <a
+                        href="https://commons.wikimedia.org/wiki/File:The_Evening_View_from_Ghandhi_Ghat_Patna_01.jpg"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="absolute bottom-2 left-5 text-[10px] text-white/70 underline underline-offset-2 hover:text-white sm:bottom-3 sm:left-8"
+                        aria-label="Home hero photo by AnkitAnand073, licensed CC BY-SA 4.0"
+                    >
+                        Photo: AnkitAnand073 · CC BY-SA 4.0
+                    </a>
                 </Container>
             </section>
 

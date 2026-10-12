@@ -754,16 +754,61 @@ export const HERO_SLIDER_IMAGES: {
   imageAttribution?: TourismImageAttribution;
 }[] = [
   {
-    src: "/tourism/patna_ganga_ghat.jpg",
-    alt: "Ganga riverfront in Patna, Bihar",
-    title: "Patna Ganga Riverfront",
-    subtitle: "Riverfront views along the Ganga",
+    src: "/tourism/bodh_gaya_mahabodhi.jpg",
+    alt: "Stone reliefs on Mahabodhi Temple at Bodh Gaya, Bihar",
+    title: "Mahabodhi Temple, Bodh Gaya",
+    subtitle: "A UNESCO-listed landmark at the heart of Buddhist pilgrimage",
+    imageAttribution: TOURISM_DESTINATION_IMAGES.Gaya.imageAttribution,
   },
   {
-    src: "/tourism/jamui/simultala.png",
-    alt: "Simultala hills in Jamui, Bihar",
-    title: "Simultala Hills",
-    subtitle: "A quiet nature escape in Jamui",
+    src: "/tourism/valmiki_tiger_reserve_forest.jpg",
+    alt: "Forest at Madanpur in Valmiki Tiger Reserve, West Champaran, Bihar",
+    title: "Valmiki Tiger Reserve",
+    subtitle: "Explore forest trails and wildlife in West Champaran",
+    imageAttribution: {
+      name: "Praanshu",
+      source: "https://commons.wikimedia.org/wiki/File:Madanpur_Jungle_Bagaha,_Champaran.jpg",
+      license: "CC BY-SA 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+    },
+  },
+  {
+    src: "/tourism/nalanda_mahavihara.jpg",
+    alt: "Ancient brick monastery ruins at Nalanda Mahavihara, Bihar",
+    title: "Ancient Nalanda University",
+    subtitle: "Walk among the brick monasteries of a celebrated centre of learning",
+    imageAttribution: TOURISM_DESTINATION_IMAGES.Nalanda.imageAttribution,
+  },
+  {
+    src: "/tourism/rajgir_shanti_stupa.jpg",
+    alt: "Vishwa Shanti Stupa at Rajgir, Nalanda district, Bihar",
+    title: "Vishwa Shanti Stupa, Rajgir",
+    subtitle: "A peaceful hilltop landmark reached by the Rajgir ropeway",
+    imageAttribution: TOURISM_DESTINATION_IMAGES.Rajgir.imageAttribution,
+  },
+  {
+    src: "/tourism/kesariya_stupa_east_champaran.jpg",
+    alt: "Kesariya Stupa in East Champaran, Bihar",
+    title: "Kesariya Stupa",
+    subtitle: "Discover one of the largest Buddhist stupas in East Champaran",
+    imageAttribution: {
+      name: "Monukr01",
+      source: "https://commons.wikimedia.org/wiki/File:Kesariya_Stupa_-kesariya-_east_champaran-_Bihar.jpg",
+      license: "CC BY-SA 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+    },
+  },
+  {
+    src: "https://upload.wikimedia.org/wikipedia/commons/0/0e/Chhath_Puja%2C_Bihar%2C_India_%282022%29.jpg",
+    alt: "Traditional offerings prepared for Chhath Puja in Bihar",
+    title: "Chhath Puja, Bihar",
+    subtitle: "Celebrate Bihar's riverside festival of gratitude to the Sun",
+    imageAttribution: {
+      name: "Kvikash6689",
+      source: "https://commons.wikimedia.org/wiki/File:Chhath_Puja,_Bihar,_India_(2022).jpg",
+      license: "CC BY-SA 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+    },
   },
 ] as const;
 
