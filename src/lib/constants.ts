@@ -525,61 +525,37 @@ export const TOURISM_DESTINATION_IMAGES: Record<
   }
 > = {
   Jamui: {
-    src: "/tourism/jamui/giddheshwar_actual.jpg",
-    alt: "Giddheshwar Temple and surrounding landscape in Jamui, Bihar",
+    src: "/images/districts/01_Jamui.jpg",
+    alt: "Jamui district landscape with hills and Jain heritage sites in Bihar",
   },
   Patna: {
-    src: "/tourism/patna_ganga_ghat.jpg",
-    alt: "Ganga riverfront and Gandhi Ghat in Patna, Bihar",
+    src: "/images/districts/02_Patna.jpg",
+    alt: "Golghar and Ganga riverfront in Patna, Bihar",
     objectPosition: "center 58%",
   },
   Gaya: {
-    src: "/tourism/bodh_gaya_mahabodhi.jpg",
-    alt: "Stone Buddha reliefs on the south wall of Mahabodhi Temple, Bodh Gaya, Bihar",
-    imageAttribution: {
-      name: "Sumitsurai",
-      source: "https://commons.wikimedia.org/wiki/File:Mahabodhi_Temple_South_Wall_(2).jpg",
-      license: "CC BY-SA 4.0",
-      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
-    },
+    src: "/images/districts/03_Gaya_Bodh_Gaya.jpg",
+    alt: "Bodh Gaya Mahabodhi Temple and spiritual landmarks in Gaya, Bihar",
   },
   Rajgir: {
-    src: "/tourism/rajgir_shanti_stupa.jpg",
-    alt: "Vishwa Shanti Stupa at Rajgir, Bihar",
-    imageAttribution: {
-      name: "Photo Dharma",
-      source: "https://commons.wikimedia.org/wiki/File:Shanti_Stupa_at_Rajgir.jpg",
-      license: "CC BY 2.0",
-      licenseUrl: "https://creativecommons.org/licenses/by/2.0/",
-    },
+    src: "/images/districts/04_Nalanda_Rajgir.jpg",
+    alt: "Rajgir hills and Shanti Stupa in Nalanda district, Bihar",
   },
   Nalanda: {
-    src: "/tourism/nalanda_mahavihara.jpg",
-    alt: "Brick monastery ruins at Nalanda Mahavihara, Bihar",
-    imageAttribution: {
-      name: "Sumitsurai",
-      source: "https://commons.wikimedia.org/wiki/File:Monastery_5_-_Nalanda_Mahavihara_(1).jpg",
-      license: "CC BY-SA 4.0",
-      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
-    },
+    src: "/images/districts/05_Nalanda.jpg",
+    alt: "Ancient Nalanda University ruins and heritage site in Bihar",
   },
   Sitamarhi: {
-    src: "/tourism/sitamarhi_punaura_dham.jpg",
-    alt: "Punaura Dham temple in Sitamarhi, Bihar",
-    imageAttribution: {
-      name: "Skrsingh009",
-      source: "https://commons.wikimedia.org/wiki/File:Punaura_Dham.jpg",
-      license: "CC0",
-      licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
-    },
+    src: "/images/districts/06_Sitamarhi.jpg",
+    alt: "Punaura Dham temple and Mithila heritage in Sitamarhi, Bihar",
   },
   Vaishali: {
-    src: "/vaishali_ruins.png",
-    alt: "Ancient ruins and heritage at Vaishali, Bihar",
+    src: "/images/districts/07_Vaishali.jpg",
+    alt: "Ancient ruins and Buddhist heritage at Vaishali, Bihar",
   },
   Madhubani: {
-    src: "/tourism/madhubani_art.jpg",
-    alt: "Mithila paintings displayed at a Madhubani art market in Bihar",
+    src: "/images/districts/08_Madhubani.jpg",
+    alt: "Madhubani paintings and Mithila art culture in Bihar",
   },
 };
 
@@ -614,7 +590,6 @@ export const TOURISM_DISTRICTS: TourismDistrict[] = [
     description: "Explore Buddhist heritage and pilgrimage architecture at Bodh Gaya.",
     heroImage: TOURISM_DESTINATION_IMAGES.Gaya.src,
     heroImageAlt: TOURISM_DESTINATION_IMAGES.Gaya.alt,
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Gaya.imageAttribution,
   },
   {
     id: "Rajgir",
@@ -625,7 +600,6 @@ export const TOURISM_DISTRICTS: TourismDistrict[] = [
     description: "Discover Nalanda heritage, Rajgir hills and the Shanti Stupa.",
     heroImage: TOURISM_DESTINATION_IMAGES.Rajgir.src,
     heroImageAlt: TOURISM_DESTINATION_IMAGES.Rajgir.alt,
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Rajgir.imageAttribution,
   },
   {
     id: "Nalanda",
@@ -636,7 +610,6 @@ export const TOURISM_DISTRICTS: TourismDistrict[] = [
     description: "Explore the UNESCO-listed Nalanda Mahavihara and its ancient university ruins.",
     heroImage: TOURISM_DESTINATION_IMAGES.Nalanda.src,
     heroImageAlt: TOURISM_DESTINATION_IMAGES.Nalanda.alt,
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Nalanda.imageAttribution,
   },
   {
     id: "Sitamarhi",
@@ -647,7 +620,6 @@ export const TOURISM_DISTRICTS: TourismDistrict[] = [
     description: "Visit Punaura Dham, a religious destination in Sitamarhi district.",
     heroImage: TOURISM_DESTINATION_IMAGES.Sitamarhi.src,
     heroImageAlt: TOURISM_DESTINATION_IMAGES.Sitamarhi.alt,
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Sitamarhi.imageAttribution,
   },
   {
     id: "Vaishali",
@@ -658,7 +630,6 @@ export const TOURISM_DISTRICTS: TourismDistrict[] = [
     description: "Explore the ancient republic where Buddha delivered his last sermon.",
     heroImage: TOURISM_DESTINATION_IMAGES.Vaishali.src,
     heroImageAlt: TOURISM_DESTINATION_IMAGES.Vaishali.alt,
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Vaishali.imageAttribution,
   },
   {
     id: "Madhubani",
@@ -711,7 +682,6 @@ export const BIHAR_DESTINATIONS: BiharDestination[] = [
     alt: TOURISM_DESTINATION_IMAGES.Rajgir.alt,
     district: "Rajgir",
     objectPosition: TOURISM_DESTINATION_IMAGES.Rajgir.objectPosition,
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Rajgir.imageAttribution,
   },
   {
     name: "Nalanda",
@@ -719,7 +689,6 @@ export const BIHAR_DESTINATIONS: BiharDestination[] = [
     img: TOURISM_DESTINATION_IMAGES.Nalanda.src,
     alt: TOURISM_DESTINATION_IMAGES.Nalanda.alt,
     district: "Nalanda",
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Nalanda.imageAttribution,
   },
   {
     name: "Sitamarhi",
@@ -727,7 +696,6 @@ export const BIHAR_DESTINATIONS: BiharDestination[] = [
     img: TOURISM_DESTINATION_IMAGES.Sitamarhi.src,
     alt: TOURISM_DESTINATION_IMAGES.Sitamarhi.alt,
     district: "Sitamarhi",
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Sitamarhi.imageAttribution,
   },
   {
     name: "Vaishali",
@@ -735,7 +703,6 @@ export const BIHAR_DESTINATIONS: BiharDestination[] = [
     img: TOURISM_DESTINATION_IMAGES.Vaishali.src,
     alt: TOURISM_DESTINATION_IMAGES.Vaishali.alt,
     district: "Vaishali",
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Vaishali.imageAttribution,
   },
   {
     name: "Madhubani",
@@ -758,7 +725,6 @@ export const HERO_SLIDER_IMAGES: {
     alt: "Stone reliefs on Mahabodhi Temple at Bodh Gaya, Bihar",
     title: "Mahabodhi Temple, Bodh Gaya",
     subtitle: "A UNESCO-listed landmark at the heart of Buddhist pilgrimage",
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Gaya.imageAttribution,
   },
   {
     src: "/tourism/valmiki_tiger_reserve_forest.jpg",
@@ -777,14 +743,12 @@ export const HERO_SLIDER_IMAGES: {
     alt: "Ancient brick monastery ruins at Nalanda Mahavihara, Bihar",
     title: "Ancient Nalanda University",
     subtitle: "Walk among the brick monasteries of a celebrated centre of learning",
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Nalanda.imageAttribution,
   },
   {
     src: "/tourism/rajgir_shanti_stupa.jpg",
     alt: "Vishwa Shanti Stupa at Rajgir, Nalanda district, Bihar",
     title: "Vishwa Shanti Stupa, Rajgir",
     subtitle: "A peaceful hilltop landmark reached by the Rajgir ropeway",
-    imageAttribution: TOURISM_DESTINATION_IMAGES.Rajgir.imageAttribution,
   },
   {
     src: "/tourism/kesariya_stupa_east_champaran.jpg",
@@ -965,7 +929,7 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "UNESCO Intangible Cultural Heritage", url: "https://ich.unesco.org/en/RL/mithila-painting-01052" },
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/madhubani" },
     ],
-    image: "/tourism/madhubani_art.jpg",
+    image: "/images/districts/08_Madhubani.jpg",
     lat: 26.3718,
     lng: 86.0831,
     featured: true,
@@ -1142,7 +1106,7 @@ export const TOURISM_PLACES: TourismPlace[] = [
     historySources: [
       { label: "Jamui District Administration — Places of Interest", url: "https://jamui.nic.in/places-of-interest/" },
     ],
-    image: "/tourism/jamui/giddheshwar_actual.jpg",
+    image: "/images/districts/01_Jamui.jpg",
     lat: 24.8954,
     lng: 86.2041,
   },
@@ -1180,7 +1144,7 @@ export const TOURISM_PLACES: TourismPlace[] = [
     historySources: [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/patna" },
     ],
-    image: "/patna_ganges.png",
+    image: "/images/districts/02_Patna.jpg",
     lat: 25.6125,
     lng: 85.1375,
     featured: true,
@@ -1262,7 +1226,7 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "UNESCO Intangible Cultural Heritage", url: "https://ich.unesco.org/en/RL/mithila-painting-01052" },
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/madhubani" },
     ],
-    image: "/tourism/madhubani_art.jpg",
+    image: "/images/districts/08_Madhubani.jpg",
     lat: 26.3800,
     lng: 86.1200,
   },

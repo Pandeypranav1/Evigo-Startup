@@ -25,7 +25,7 @@ function TourismImage({
 }) {
     const [hasError, setHasError] = useState(false);
     const [hasFallbackError, setHasFallbackError] = useState(false);
-    const imageSrc = hasError ? "/tourism/patna_gandhi_ghat_evening.jpg" : src;
+    const imageSrc = hasError ? "/images/districts/02_Patna.jpg" : src;
 
     if (hasError && hasFallbackError) {
         return (
