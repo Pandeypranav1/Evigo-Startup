@@ -4,6 +4,10 @@ import { getAuthenticatedUser } from '@/lib/server';
 import { createAdminClient } from '@/lib/supabase';
 import { PaymentService } from '@/lib/payment/service';
 import { PaymentMethod } from '@/lib/payment/types';
+import {
+  authorizeBookingPayment,
+  isValidBookingId,
+} from '@/lib/payment/booking-authorization';
 
 const VALID_PAYMENT_METHODS = new Set<PaymentMethod>([
   'upi',
@@ -175,6 +179,17 @@ export async function POST(
       );
     }
 
+    if (!isValidBookingId(bookingId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid booking ID',
+          code: 'INVALID_BOOKING_ID',
+        },
+        { status: 400 }
+      );
+    }
+
     // =========================================================
     // 2. PARSE REQUEST
     // =========================================================
@@ -251,44 +266,64 @@ export async function POST(
     // 5. OWNERSHIP CHECK
     // =========================================================
 
-    if (booking.client_id !== user.id) {
+    const authorization = authorizeBookingPayment(user.id, booking);
+    console.info(
+      '[POST /api/bookings/:id/initiate-payment] Booking owner comparison:',
+      {
+        bookingId,
+        ownerMatch: authorization.ownerMatch,
+      }
+    );
+
+    if (!authorization.authorized) {
+      if (authorization.reason === 'NOT_AUTHORIZED') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Not authorized',
+            code: 'NOT_AUTHORIZED',
+          },
+          { status: 403 }
+        );
+      }
+
+      if (authorization.reason === 'BOOKING_NOT_PAYABLE') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Booking is not in a payable status',
+            code: 'BOOKING_NOT_PAYABLE',
+          },
+          { status: 409 }
+        );
+      }
+
+      if (authorization.reason === 'BOOKING_ALREADY_PAID') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Booking already paid',
+            code: 'BOOKING_ALREADY_PAID',
+          },
+          { status: 400 }
+        );
+      }
+
       console.warn(
-        '[POST /api/bookings/:id/initiate-payment] Unauthorized booking access:',
+        '[POST /api/bookings/:id/initiate-payment] Booking payment authorization failed:',
         {
           bookingId,
-          userId: user.id,
+          reason: authorization.reason,
         }
       );
 
       return NextResponse.json(
         {
           success: false,
-          error: 'Not authorized',
-          code: 'NOT_AUTHORIZED',
+          error: 'Booking payment is not available',
+          code: authorization.reason,
         },
-        { status: 403 }
-      );
-    }
-
-    // =========================================================
-    // 6. PREVENT PAYMENT FOR ALREADY-PAID BOOKING
-    // =========================================================
-
-    if (booking.payment_status === 'paid') {
-      console.log(
-        '[POST /api/bookings/:id/initiate-payment] Booking already paid:',
-        {
-          bookingId,
-        }
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Booking already paid',
-          code: 'BOOKING_ALREADY_PAID',
-        },
-        { status: 400 }
+        { status: 404 }
       );
     }
 

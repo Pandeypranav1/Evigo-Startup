@@ -178,7 +178,7 @@ export async function POST(request: Request) {
 
     // Idempotency check: prevent duplicate booking creation
     // Check for existing booking with same customer, service, and date in non-terminal state
-    const { data: existingBooking } = await supabase
+    let existingBookingQuery = supabase
       .from("bookings")
       .select("*")
       .eq("customer_phone", effectiveCustomerPhone)
@@ -186,8 +186,11 @@ export async function POST(request: Request) {
       .eq("travel_date", travel_date || effectiveEventDate)
       .in("status", ["pending", "confirmed"])
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+    existingBookingQuery = user
+      ? existingBookingQuery.eq("client_id", user.id)
+      : existingBookingQuery.is("client_id", null);
+    const { data: existingBooking } = await existingBookingQuery.maybeSingle();
 
     if (existingBooking) {
       console.log("[POST /api/bookings] Returning existing booking to prevent duplicate:", existingBooking.id);
@@ -204,7 +207,7 @@ export async function POST(request: Request) {
 
     // Booking payload: structured columns preserved, message strictly for special requests
     const bookingPayload: Record<string, any> = {
-      client_id: client_id || null,
+      client_id: user?.id || null,
       provider_id: effectiveProviderId,
       provider_uuid: sanitizedProviderUuid,
       service_id: sanitizedServiceId,
