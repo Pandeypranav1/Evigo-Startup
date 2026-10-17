@@ -1,47 +1,41 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
-import { isAllowedAdminEmail } from "@/lib/admin";
+import { getAuthenticatedUser } from "@/lib/server";
+import { isAuthorizedAdmin } from "@/lib/admin";
+import { buildProviderReviewUpdate } from "@/lib/provider-workflow";
 
 export const runtime = "nodejs";
 
-function getRequester(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const email =
-        request.headers.get("x-user-email") ??
-        request.headers.get("x-admin-email") ??
-        searchParams.get("user_email") ??
-        "";
-    const role =
-        request.headers.get("x-user-role") ??
-        request.headers.get("x-role") ??
-        searchParams.get("user_role") ??
-        "";
-
-    return {
-        email: email.trim().toLowerCase(),
-        role: role.trim().toLowerCase(),
-    };
-}
-
-function authorize(request: Request) {
-    const { email, role } = getRequester(request);
-
-    if (!email) {
-        throw new Error("Unauthorized");
+async function authorizeAdmin() {
+    const { user, error } = await getAuthenticatedUser();
+    if (error) {
+        console.warn("[admin/providers] session verification failed:", error.code);
+    }
+    if (!user) {
+        return {
+            response: NextResponse.json(
+                { success: false, error: "A valid signed-in session is required.", code: "AUTHENTICATION_REQUIRED" },
+                { status: 401 }
+            ),
+        };
     }
 
-    if (role === "client") {
-        throw new Error("Forbidden");
+    if (!isAuthorizedAdmin(user)) {
+        return {
+            response: NextResponse.json(
+                { success: false, error: "This account is not authorized to review provider applications.", code: "ADMIN_REQUIRED" },
+                { status: 403 }
+            ),
+        };
     }
 
-    if (!isAllowedAdminEmail(email)) {
-        throw new Error("Forbidden");
-    }
+    return { user };
 }
 
 export async function GET(request: Request) {
     try {
-        authorize(request);
+        const authorization = await authorizeAdmin();
+        if ("response" in authorization) return authorization.response;
 
         const { searchParams } = new URL(request.url);
         const status = (searchParams.get("status") ?? "all").toLowerCase();
@@ -77,14 +71,18 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ success: true, providers: filteredProviders, summary });
     } catch (err: any) {
-        const message = err?.message === "Unauthorized" ? "Unauthorized" : "Forbidden";
-        return NextResponse.json({ success: false, error: message }, { status: message === "Unauthorized" ? 401 : 403 });
+        console.error("[GET /api/admin/providers] request failed:", err);
+        return NextResponse.json(
+            { success: false, error: "Unable to load provider applications.", code: "PROVIDER_REVIEW_LOAD_FAILED" },
+            { status: 500 }
+        );
     }
 }
 
 export async function PATCH(request: Request) {
     try {
-        authorize(request);
+        const authorization = await authorizeAdmin();
+        if ("response" in authorization) return authorization.response;
 
         const body = await request.json();
         const providerId = String(body.id ?? "").trim();
@@ -103,18 +101,24 @@ export async function PATCH(request: Request) {
         if (action === "approve") {
             const { data, error } = await supabase
                 .from("providers")
-                .update({
-                    registration_status: "approved",
-                    is_verified: true,
-                    is_bookable: true,
-                })
+                .update(buildProviderReviewUpdate("approve"))
                 .eq("id", providerId)
+                .eq("registration_status", "pending")
                 .select()
-                .single();
+                .maybeSingle();
 
             if (error) {
                 console.error("[PATCH /api/admin/providers] approve error:", error);
-                return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+                return NextResponse.json(
+                    { success: false, error: "Provider application approval failed.", code: "PROVIDER_APPROVAL_FAILED" },
+                    { status: 500 }
+                );
+            }
+            if (!data) {
+                return NextResponse.json(
+                    { success: false, error: "The application was not found or is no longer pending.", code: "APPLICATION_NOT_PENDING" },
+                    { status: 409 }
+                );
             }
 
             return NextResponse.json({ success: true, provider: data, message: "Provider approved successfully." });
@@ -127,19 +131,32 @@ export async function PATCH(request: Request) {
 
         const { data, error } = await supabase
             .from("providers")
-            .update({ registration_status: "rejected", admin_note: reason })
+            .update(buildProviderReviewUpdate("reject", reason))
             .eq("id", providerId)
+            .eq("registration_status", "pending")
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) {
             console.error("[PATCH /api/admin/providers] reject error:", error);
-            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+            return NextResponse.json(
+                { success: false, error: "Provider application rejection failed.", code: "PROVIDER_REJECTION_FAILED" },
+                { status: 500 }
+            );
+        }
+        if (!data) {
+            return NextResponse.json(
+                { success: false, error: "The application was not found or is no longer pending.", code: "APPLICATION_NOT_PENDING" },
+                { status: 409 }
+            );
         }
 
         return NextResponse.json({ success: true, provider: data, message: "Provider rejected successfully." });
     } catch (err: any) {
-        const message = err?.message === "Unauthorized" ? "Unauthorized" : "Forbidden";
-        return NextResponse.json({ success: false, error: message }, { status: message === "Unauthorized" ? 401 : 403 });
+        console.error("[PATCH /api/admin/providers] request failed:", err);
+        return NextResponse.json(
+            { success: false, error: "Unable to process provider application review.", code: "PROVIDER_REVIEW_UPDATE_FAILED" },
+            { status: 500 }
+        );
     }
 }

@@ -8,6 +8,7 @@ import { SERVICE_CATEGORIES, CATEGORY_IMAGE, EVENT_VENUES } from "@/lib/constant
 import type { ServiceCategory, EventVenue } from "@/lib/constants";
 import type { DemoProvider } from "@/lib/demoStore";
 import { getDemoUser, saveDemoBooking } from "@/lib/demoStore";
+import { getProviderStartingPrice } from "@/lib/provider-search";
 
 /* ─── Price bands ─── */
 const PRICE_BANDS = [
@@ -263,11 +264,11 @@ function EmptyState({ category }: { category: string }) {
       <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full mx-auto mb-6 flex items-center justify-center text-4xl sm:text-5xl" style={{ background: "linear-gradient(135deg,#ede9fe,#cffafe)" }}>
         🔍
       </div>
-      <div className="text-xl sm:text-2xl font-black text-zinc-900">No providers yet</div>
+      <div className="text-xl sm:text-2xl font-black text-zinc-900">No matching public listings</div>
       <div className="text-sm text-zinc-500 max-w-xs mx-auto mt-2.5 leading-relaxed">
         {category !== "All"
-          ? `No ${category} providers have listed yet. Be the first to register!`
-          : "Be the first to list your service on Evigo and reach thousands of clients."}
+          ? `No approved ${category} providers are visible for this search.`
+          : "No approved provider listings are currently visible for this search."}
       </div>
       <Link href="/partner">
         <button className="mt-7 px-7 py-3 rounded-xl border-none text-sm font-bold text-white cursor-pointer transition-all duration-200 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", boxShadow: "0 4px 20px rgba(139,92,246,0.35)" }}>
@@ -284,6 +285,7 @@ export default function ExplorePage() {
   const [locationFilter, setLocationFilter] = useState("");
   const [priceBand, setPriceBand] = useState(0);
   const [providers, setProviders] = useState<DemoProvider[]>([]);
+  const [providersError, setProvidersError] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<DemoProvider | null>(null);
 
   useEffect(() => {
@@ -291,6 +293,9 @@ export default function ExplorePage() {
       try {
         const response = await fetch("/api/providers");
         const payload = await response.json();
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error || "Provider listings are temporarily unavailable.");
+        }
         const apiProviders = Array.isArray(payload?.providers) ? payload.providers : [];
 
         const mapped = apiProviders.map((provider: any) => ({
@@ -301,7 +306,7 @@ export default function ExplorePage() {
           category: provider.category ?? "Catering",
           phone: provider.phone ?? "",
           city: provider.city ?? "",
-          startingPrice: Number(provider.starting_price ?? 0),
+          startingPrice: getProviderStartingPrice(provider.price_range ?? null) ?? 0,
           experienceYears: Number(provider.experience_years ?? 0),
           description: provider.description ?? "",
           imageUrl: provider.image_url ?? "",
@@ -310,8 +315,11 @@ export default function ExplorePage() {
         }));
 
         setProviders(mapped);
-      } catch {
+        setProvidersError(null);
+      } catch (error) {
+        console.error("[Explore] Failed to load provider listings:", error);
         setProviders([]);
+        setProvidersError("Provider listings are temporarily unavailable. Please try again later.");
       }
     };
 
@@ -421,6 +429,12 @@ export default function ExplorePage() {
           })}
         </div>
 
+        {providersError && (
+          <p role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+            {providersError}
+          </p>
+        )}
+
         {/* ── Results: Hotel Venue Cards (when All or Restaurant selected) ── */}
         {filteredHotels.length > 0 && (
           <>
@@ -456,7 +470,7 @@ export default function ExplorePage() {
         )}
 
         {/* ── Empty State ── */}
-        {totalResults === 0 && <EmptyState category={category} />}
+        {totalResults === 0 && !providersError && <EmptyState category={category} />}
       </Container>
 
       <BookingModal provider={selectedProvider} onClose={() => setSelectedProvider(null)} />

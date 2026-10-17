@@ -171,9 +171,9 @@ startup/
 1. User types a query in the AI drawer on `/services/tourism`
 2. POST → `/api/ai/tourism-assistant` with the message
 3. API checks IP-based rate limit (30 queries/day per IP)
-4. If `ANTHROPIC_API_KEY` is set → calls Claude 3 Haiku with a Evigo-scoped system prompt (TOURISM_PLACES + EVENT_VENUES injected as context)
-5. Fallback: rich heuristic responses for known places (Simultala, Kshatriya Kund, Minto Tower, etc.) without any external API call
-6. Reply streamed back and rendered as Markdown in the chat drawer
+4. Provider/vendor searches query `public.providers` server-side using the publishable Supabase client, under the caller's existing RLS permissions. Only approved, verified, bookable listings are returned; category, city/service area and listed-price budget filters are supported.
+5. Empty provider searches direct users to `/contact`. Listing query/permission failures are returned as errors rather than treated as empty search results.
+6. Other tourism queries use Claude 3 Haiku when `ANTHROPIC_API_KEY` is configured, or the built-in responder for known places.
 
 **Directions link (Tourism place cards):**
 ```ts
@@ -251,8 +251,10 @@ Create a `.env.local` file in the project root. Required variables:
 # ─── Supabase (Auth + DB) ──────────────────────────────────────────────────────
 # Get from: https://supabase.com/dashboard → Settings → API
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=          # Server-only — never prefix with NEXT_PUBLIC_
+ADMIN_PROVIDER_EMAILS=              # Comma-separated admin allowlist; server-only
+# Alternatively configure the trusted Supabase Auth app_metadata.role=admin claim.
 
 # ─── MongoDB (Legacy provider/booking data) ───────────────────────────────────
 MONGODB_URI=                        # e.g. mongodb+srv://user:pass@cluster.mongodb.net/evigo
@@ -274,6 +276,16 @@ GOOGLE_MAPS_API_KEY=                # Server-side only — never use NEXT_PUBLIC
 ```
 
 > **Never commit real key values** to source control — only variable names should appear in README or `.env.example`.
+
+### Provider approval and search setup
+
+- Configure `ADMIN_PROVIDER_EMAILS` with comma-separated, trusted admin email addresses, or assign the trusted Supabase Auth `app_metadata.role=admin` claim through a privileged process. The provider review API verifies the Supabase session itself; identity headers are not used for authorization.
+- Provider registration requires an authenticated account whose existing `profiles.role` is `provider`. New submissions are always pending, unverified, and unbookable. Approval/rejection is restricted to pending applications.
+- AI and public provider searches use the server-side Supabase publishable client, so the existing `public.providers` grants and RLS policies remain in effect. Review the project's current SELECT grant/policies to ensure the intended public or authenticated role can read only eligible provider rows. Do not use the service-role key to make listings visible; RLS-filtered rows may look like an empty result, while a denied table permission is returned as a search error.
+- Search filters use the stored category, `city`/`service_areas`, and the stored `price_range`. A budget filter includes a listing only when its full parseable listed price range is within budget. Missing/unparseable prices are excluded from budget-filtered results. Date-specific availability is not inferred.
+- No provider rows or verification values are seeded by this code. Do not manually approve the existing FaabCab record as part of setup.
+
+Run `npm run test:provider` for the focused workflow/search tests. To verify real registration and admin approval end-to-end, use a non-production Supabase project with a real provider-auth account and a deliberately submitted pending test application. Check unauthenticated registration (`401`), non-provider registration (`403`), header-only admin access (`401`), non-admin session (`403`), approve/reject state changes, and provider search under the configured RLS policies. Do not create test rows in production.
 
 ### 3. Run Locally
 ```bash

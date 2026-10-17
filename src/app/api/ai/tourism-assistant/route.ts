@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOURISM_PLACES, EVENT_VENUES } from "@/lib/constants";
+import { createClient } from "@/lib/server";
+import {
+  formatProviderSearchReply,
+  parseProviderSearchIntent,
+  searchApprovedProviders,
+  toAssistantProviderListing,
+} from "@/lib/provider-search";
 
 // In-memory sliding window rate limiter (resets on server restart or 24h)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -31,7 +38,7 @@ function buildSystemContext() {
   ).join("\n\n");
 
   const hotelsText = EVENT_VENUES.map(
-    (h) => `- **${h.name}** (${h.location}): Rating ${h.googleRating ?? 4.5}★, Features: ${h.safetyFeatures.join(", ")}`
+    (h) => `- **${h.name}** (${h.location}): ${h.googleRating == null ? "No rating is listed." : `Recorded rating: ${h.googleRating}★`}, Features: ${h.safetyFeatures.join(", ")}`
   ).join("\n");
 
   return `You are Evigo's Official AI Travel & Heritage Assistant for Bihar.
@@ -234,11 +241,53 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { message, messages } = await req.json();
-    const userQuery = message || (messages && messages[messages.length - 1]?.content) || "";
+    const body = await req.json();
+    const { message, messages } = body;
+    const userQuery = typeof message === "string"
+      ? message
+      : Array.isArray(messages) && typeof messages[messages.length - 1]?.content === "string"
+        ? messages[messages.length - 1].content
+        : "";
 
     if (!userQuery.trim()) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
+    }
+
+    const rawProviderSearch = body.providerSearch;
+    const requestedProviderFilters = rawProviderSearch && typeof rawProviderSearch === "object"
+      ? {
+          ...(typeof rawProviderSearch.category === "string" ? { category: rawProviderSearch.category } : {}),
+          ...(typeof rawProviderSearch.city === "string" ? { city: rawProviderSearch.city } : {}),
+          ...(typeof rawProviderSearch.budget === "number" ? { budget: rawProviderSearch.budget } : {}),
+          ...(typeof rawProviderSearch.limit === "number" ? { limit: rawProviderSearch.limit } : {}),
+        }
+      : undefined;
+    if (
+      requestedProviderFilters?.budget !== undefined &&
+      (!Number.isFinite(requestedProviderFilters.budget) || requestedProviderFilters.budget < 0)
+    ) {
+      return NextResponse.json({ error: "Provider search budget must be a non-negative number." }, { status: 400 });
+    }
+    const providerFilters = parseProviderSearchIntent(userQuery, requestedProviderFilters);
+    if (providerFilters) {
+      try {
+        const supabase = await createClient();
+        const providers = await searchApprovedProviders(supabase, providerFilters);
+        return NextResponse.json({
+          reply: formatProviderSearchReply(providers, providerFilters),
+          providers: providers.map(toAssistantProviderListing),
+          remaining,
+        });
+      } catch (error) {
+        console.error("[POST /api/ai/tourism-assistant] provider search failed:", error);
+        return NextResponse.json(
+          {
+            error: "Provider search is temporarily unavailable because the listings could not be read. Please contact Evigo support through the Contact Us page.",
+            code: "PROVIDER_SEARCH_UNAVAILABLE",
+          },
+          { status: 503 }
+        );
+      }
     }
 
     // Check if external API key is provided (Claude / Anthropic)

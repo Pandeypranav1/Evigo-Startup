@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 import { SERVICE_CATEGORIES } from "@/lib/constants";
 import { getAuthenticatedUser } from "@/lib/server";
+import { isProviderAccountRole, NEW_PROVIDER_REGISTRATION_STATE } from "@/lib/provider-workflow";
 
 export const runtime = "nodejs";
 
@@ -34,11 +35,44 @@ function isValidUrl(value: string) {
 
 export async function POST(request: Request) {
     try {
+        const { user, error: authError } = await getAuthenticatedUser();
+        if (authError || !user) {
+            if (authError) {
+                console.warn("[POST /api/providers/register] authentication failed:", authError.code);
+            }
+            return NextResponse.json(
+                { success: false, error: "Sign in with your provider account before submitting an application.", code: "AUTHENTICATION_REQUIRED" },
+                { status: 401 }
+            );
+        }
+
+        const supabase = createAdminClient();
+        const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle();
+
+        if (profileError) {
+            console.error("[POST /api/providers/register] provider-role lookup failed:", profileError);
+            return NextResponse.json(
+                { success: false, error: "Unable to verify provider account. Please try again later.", code: "PROVIDER_ROLE_LOOKUP_FAILED" },
+                { status: 500 }
+            );
+        }
+        if (!isProviderAccountRole(profile?.role)) {
+            return NextResponse.json(
+                { success: false, error: "Only authenticated provider accounts can submit an application.", code: "PROVIDER_ACCOUNT_REQUIRED" },
+                { status: 403 }
+            );
+        }
+
         const body = await request.json();
 
         const ownerName = normalizeString(body.owner_name || body.ownerName);
         const businessName = normalizeString(body.business_name || body.businessName);
-        const email = normalizeString(body.email).toLowerCase();
+        const submittedEmail = normalizeString(body.email).toLowerCase();
+        const email = normalizeString(user.email).toLowerCase();
         const category = normalizeString(body.category);
         const phone = normalizeString(body.phone);
         const city = normalizeString(body.city);
@@ -46,6 +80,22 @@ export async function POST(request: Request) {
         const experienceYears = Number(body.experience_years ?? body.experienceYears ?? 0);
         const imageUrl = normalizeString(body.image_url || body.imageUrl);
         const description = normalizeString(body.description);
+        const rawServiceAreas = body.service_areas;
+
+        if (
+            rawServiceAreas !== undefined &&
+            (!Array.isArray(rawServiceAreas) ||
+                rawServiceAreas.length > 20 ||
+                rawServiceAreas.some((area: unknown) => typeof area !== "string" || area.trim().length > 100))
+        ) {
+            return NextResponse.json(
+                { success: false, error: "Service areas must be up to 20 location names of 100 characters or less." },
+                { status: 400 }
+            );
+        }
+        const serviceAreas = Array.isArray(rawServiceAreas)
+            ? [...new Set(rawServiceAreas.map((area: string) => area.trim()).filter(Boolean))]
+            : [];
 
         if (!ownerName) {
             return NextResponse.json({ success: false, error: "Owner name is required." }, { status: 400 });
@@ -53,11 +103,11 @@ export async function POST(request: Request) {
         if (!businessName) {
             return NextResponse.json({ success: false, error: "Business name is required." }, { status: 400 });
         }
-        if (!email) {
-            return NextResponse.json({ success: false, error: "Email is required." }, { status: 400 });
+        if (!email || !isValidEmail(email)) {
+            return NextResponse.json({ success: false, error: "Your authenticated account must have a valid email address.", code: "AUTHENTICATED_EMAIL_REQUIRED" }, { status: 400 });
         }
-        if (!isValidEmail(email)) {
-            return NextResponse.json({ success: false, error: "Please enter a valid email address." }, { status: 400 });
+        if (submittedEmail && submittedEmail !== email) {
+            return NextResponse.json({ success: false, error: "The application email must match your authenticated account.", code: "EMAIL_MISMATCH" }, { status: 400 });
         }
         if (!category || !ALLOWED_CATEGORIES.has(category as (typeof SERVICE_CATEGORIES)[number])) {
             return NextResponse.json({ success: false, error: "Please select a valid service category." }, { status: 400 });
@@ -83,8 +133,6 @@ export async function POST(request: Request) {
         if (!description) {
             return NextResponse.json({ success: false, error: "Description is required." }, { status: 400 });
         }
-
-        const supabase = createAdminClient();
 
         const sanitizedPhone = phone.replace(/\s+/g, "");
 
@@ -122,7 +170,6 @@ export async function POST(request: Request) {
             );
         }
 
-        const { user } = await getAuthenticatedUser();
         const payload: Record<string, any> = {
             owner_name: ownerName,
             business_name: businessName,
@@ -136,16 +183,11 @@ export async function POST(request: Request) {
             starting_price: Number(startingPrice),
             experience_years: Number(experienceYears),
             image_url: imageUrl || null,
-            is_verified: false,
-            is_bookable: false,
-            service_areas: [],
-            registration_status: "pending",
+            ...NEW_PROVIDER_REGISTRATION_STATE,
+            service_areas: serviceAreas,
             submitted_at: new Date().toISOString(),
+            user_id: user.id,
         };
-
-        if (user?.id) {
-            payload.user_id = user.id;
-        }
 
         const { data, error } = await supabase
             .from("providers")

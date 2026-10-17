@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Container } from "@/components/Container";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/context/AuthContext";
-import { isAllowedAdminEmail } from "@/lib/admin";
 
 type ProviderStatusFilter = "all" | "pending" | "approved" | "rejected";
 
@@ -49,21 +48,14 @@ export default function AdminProviderReviewPage() {
     const [loadingProviders, setLoadingProviders] = useState(true);
     const [summary, setSummary] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
 
-    const isAdmin = !!user?.email && isAllowedAdminEmail(user.email);
-
     const loadProviders = useCallback(async () => {
-        if (!user?.email || !isAllowedAdminEmail(user.email)) return;
+        if (!user) return;
 
         try {
             setLoadingProviders(true);
             setError(null);
 
-            const response = await fetch(`/api/admin/providers?status=${statusFilter}`, {
-                headers: {
-                    "x-user-email": user.email,
-                    "x-user-role": user.role ?? "provider",
-                },
-            });
+            const response = await fetch(`/api/admin/providers?status=${statusFilter}`);
 
             const payload = await response.json();
 
@@ -90,13 +82,8 @@ export default function AdminProviderReviewPage() {
             return;
         }
 
-        if (!isAdmin) {
-            router.replace("/");
-            return;
-        }
-
         void loadProviders();
-    }, [loading, user, isAdmin, router, loadProviders]);
+    }, [loading, user, router, loadProviders]);
 
     const displayedSummary = useMemo(() => {
         const total = providers.length;
@@ -108,7 +95,7 @@ export default function AdminProviderReviewPage() {
     }, [providers]);
 
     const handleStatusAction = async (provider: ProviderRecord, action: "approve" | "reject") => {
-        if (!user?.email) return;
+        if (!user) return;
 
         if (action === "reject") {
             const reason = window.prompt("Enter rejection reason:", "Please update your business profile and resubmit.");
@@ -118,11 +105,7 @@ export default function AdminProviderReviewPage() {
 
             const response = await fetch("/api/admin/providers", {
                 method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-user-email": user.email,
-                    "x-user-role": user.role ?? "provider",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: provider.id, action: "reject", admin_note: reason.trim() }),
             });
 
@@ -144,11 +127,7 @@ export default function AdminProviderReviewPage() {
         try {
             const response = await fetch("/api/admin/providers", {
                 method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-user-email": user.email,
-                    "x-user-role": user.role ?? "provider",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: provider.id, action: "approve" }),
             });
 
@@ -172,10 +151,6 @@ export default function AdminProviderReviewPage() {
                 <div className="text-sm font-bold uppercase tracking-[0.25em] text-zinc-500">Loading…</div>
             </main>
         );
-    }
-
-    if (!isAdmin) {
-        return null;
     }
 
     return (

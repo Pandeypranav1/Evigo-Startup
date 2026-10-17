@@ -37,6 +37,7 @@ export default function PartnerPage() {
   const [category, setCategory] = useState<ServiceCategory>("Catering");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
+  const [serviceAreas, setServiceAreas] = useState("");
   const [startingPrice, setStartingPrice] = useState("");
   const [experienceYears, setExperienceYears] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -110,6 +111,7 @@ export default function PartnerPage() {
           category,
           phone,
           city,
+          service_areas: serviceAreas.split(",").map((area) => area.trim()).filter(Boolean),
           starting_price: price,
           experience_years: exp,
           image_url: imageUrl,
@@ -283,6 +285,16 @@ export default function PartnerPage() {
                   />
                 </label>
               </div>
+
+              <label className="space-y-1.5">
+                <div className={labelCls}>Additional Service Areas (optional)</div>
+                <input
+                  value={serviceAreas}
+                  onChange={(e) => setServiceAreas(e.target.value)}
+                  className={inputCls}
+                  placeholder="e.g. Jhajha, Lakhisarai"
+                />
+              </label>
 
               <label className="space-y-1.5">
                 <div className={labelCls}>Image URL (optional)</div>
