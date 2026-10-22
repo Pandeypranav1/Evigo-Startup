@@ -148,7 +148,7 @@ export async function POST(request: Request) {
     // Map exact provider_uuid and service_id for FaabCab
     const sanitizedProviderUuid = isValidUuid(provider_uuid)
       ? provider_uuid
-      : (effectiveProviderId === "faab-cab" ? FAABCAB_PROVIDER_UUID : null);
+      : (isValidUuid(effectiveProviderId) ? effectiveProviderId : (effectiveProviderId === "faab-cab" ? FAABCAB_PROVIDER_UUID : null));
 
     const targetServiceKey = service_id || transport_service;
     const sanitizedServiceId = isValidUuid(service_id)
@@ -337,31 +337,7 @@ export async function POST(request: Request) {
         console.error("[POST /api/bookings] Cannot send notification - no provider user_id found");
       }
 
-      // 1. Create In-App Notification for Provider
-      if (providerUserId) {
-        try {
-          await createNotificationServer({
-            userId: providerUserId,
-            bookingId: booking.id,
-            title: isTransport ? "🚗 New Transport Booking" : "New Booking Request",
-            message: isTransport
-              ? [
-                `Customer: ${booking.customer_name || effectiveCustomerName}`,
-                `Pickup: ${booking.pickup_location || "Not provided"}`,
-                `Drop: ${booking.drop_location || "Not provided"}`,
-                `Date: ${booking.travel_date || "Not provided"}`,
-                `Time: ${booking.pickup_time || "Not provided"}`,
-                `Passengers: ${booking.passenger_count ?? "Not provided"}`,
-                `Service: ${booking.transport_service || effectiveServiceType}`,
-              ].join("\n")
-              : `New ${effectiveServiceType} booking from ${effectiveCustomerName} for ${bookingPayload.event_date}`,
-            type: "booking_new",
-          });
-          console.log("[POST /api/bookings] Notification sent to provider:", providerUserId);
-        } catch (notifErr) {
-          console.error("[POST /api/bookings] Failed to create notification:", notifErr);
-        }
-      }
+      // The database trigger saves the provider notification with the booking.
 
       // 2. Send Server-Side Brevo Email to Provider
       if (providerEmail) {

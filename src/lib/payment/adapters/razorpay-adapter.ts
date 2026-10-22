@@ -5,9 +5,9 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 
-import { IPaymentGatewayAdapter } from '../gateway-adapter';
+import type { IPaymentGatewayAdapter } from '../gateway-adapter';
 
-import {
+import type {
   CreateOrderParams,
   CreateOrderResult,
   PaymentStatusResult,
@@ -160,16 +160,20 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
         status = 'failed';
       }
 
+      const payments = order.status === 'paid'
+        ? await this.instance.orders.fetchPayments(gateway_order_id)
+        : null;
+      const captured = payments?.items.find((payment) => payment.status === 'captured');
+
       return {
         success: true,
 
         status,
 
-        gateway_payment_id:
-          order.receipt,
+        gateway_payment_id: captured?.id,
 
-        paid_amount: order.amount
-          ? Number(order.amount) / 100
+        paid_amount: order.amount_paid
+          ? Number(order.amount_paid) / 100
           : undefined,
       };
     } catch (error: any) {
@@ -199,6 +203,9 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
       // Verify Razorpay checkout signature
       // --------------------------------------------------------
 
+      if (!params.signature || !params.gateway_payment_id) {
+        return { success: false, status: 'failed', error: 'Payment signature and ID are required' };
+      }
       if (params.signature) {
         const generatedSignature = crypto
           .createHmac('sha256', this.keySecret)
@@ -207,7 +214,7 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
           )
           .digest('hex');
 
-        if (generatedSignature !== params.signature) {
+        if (Buffer.byteLength(params.signature) !== Buffer.byteLength(generatedSignature) || !crypto.timingSafeEqual(Buffer.from(generatedSignature), Buffer.from(params.signature))) {
           return {
             success: false,
             status: 'failed',
@@ -224,6 +231,12 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
         await this.instance.payments.fetch(
           params.gateway_payment_id!
         );
+
+      if (payment.order_id !== params.gateway_order_id ||
+          (params.amount !== undefined && Number(payment.amount) !== Math.round(params.amount * 100)) ||
+          (params.currency !== undefined && payment.currency !== params.currency)) {
+        return { success: false, status: 'failed', error: 'Payment does not match the stored order, amount or currency' };
+      }
 
       let status: PaymentStatus = 'pending';
 
@@ -516,6 +529,10 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
     signature: string
   ): boolean {
     try {
+      const secret = process.env.PAYMENT_ENV === 'production'
+        ? process.env.RAZORPAY_WEBHOOK_SECRET
+        : process.env.RAZORPAY_WEBHOOK_SECRET_SANDBOX;
+      if (!secret) return false;
       const expectedSignature = crypto
         .createHmac(
           'sha256',
