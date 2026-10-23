@@ -18,7 +18,7 @@ type AuthState = {
   role: UserRole | null;
   loading: boolean;
   login: (user: UserSession) => void;
-  signOut: () => void;
+  signOut: () => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -29,43 +29,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    const supabase = createClient();
-    let storedUser: UserSession | null = null;
-    try {
-      const stored = localStorage.getItem("evigo_user");
-      if (stored) {
-        storedUser = JSON.parse(stored) as UserSession;
-      }
-    } catch (e) {
-      console.error("Failed to parse user session", e);
-      localStorage.removeItem("evigo_user");
+    let revision = 0;
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+      setLoading(false);
+      return;
     }
-
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (!active) return;
-      const sessionUser = data.session?.user;
-      if (error || !sessionUser || !storedUser || storedUser.id !== sessionUser.id) {
+    const supabase = createClient();
+    const restore = async (id?: string) => {
+      const current = ++revision;
+      if (!id) {
         localStorage.removeItem("evigo_user");
-        setUser(null);
-      } else {
-        setUser({
-          ...storedUser,
-          id: sessionUser.id,
-          email: sessionUser.email || storedUser.email,
-        });
+        if (active) { setUser(null); setLoading(false); }
+        return;
       }
-      setLoading(false);
-    }).catch((error) => {
-      if (!active) return;
-      console.error("Failed to restore Supabase session", error);
-      localStorage.removeItem("evigo_user");
-      setUser(null);
-      setLoading(false);
-    });
-
-    return () => {
-      active = false;
+      // Never carry a previous account into a newly authenticated session.
+      setUser((previous) => previous?.id === id ? previous : null);
+      let unauthorized = false;
+      try {
+        const response = await fetch("/api/profile", { cache: "no-store" });
+        unauthorized = response.status === 401;
+        if (unauthorized) throw new Error("Session expired");
+        const data = await response.json();
+        if (!response.ok || !data.profile) throw new Error("Profile unavailable");
+        if (!active || current !== revision) return;
+        const restored: UserSession = {
+          id, email: data.profile.email || "",
+          role: data.profile.role === "provider" ? "provider" : "client",
+          profileImage: data.profile.avatar_url || undefined,
+        };
+        localStorage.setItem("evigo_user", JSON.stringify(restored));
+        setUser(restored);
+      } catch {
+        if (active && current === revision) {
+          if (unauthorized) localStorage.removeItem("evigo_user");
+          setUser((previous) => !unauthorized && previous?.id === id ? previous : null);
+        }
+      } finally {
+        if (active && current === revision) setLoading(false);
+      }
     };
+    // Do not await Supabase operations inside the auth callback (auth lock).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      void restore(session?.user.id);
+    });
+    return () => { active = false; revision++; subscription.unsubscribe(); };
   }, []);
 
   const login = useCallback((u: UserSession) => {
@@ -73,10 +80,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(u);
   }, []);
 
-  const signOut = useCallback(() => {
-    void createClient().auth.signOut();
-    localStorage.removeItem("evigo_user");
-    setUser(null);
+  const signOut = useCallback(async () => {
+    try {
+      const { error } = await createClient().auth.signOut();
+      if (error) return false;
+      localStorage.removeItem("evigo_user");
+      setUser(null);
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
   const value = useMemo<AuthState>(

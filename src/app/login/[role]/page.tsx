@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -97,7 +98,7 @@ export default function LoginPage() {
       setNotice("Login successful!");
       login(data.user);
       setTimeout(() => {
-        router.replace(role === "provider" ? "/provider/dashboard" : "/dashboard");
+        router.replace(data.user.role === "provider" ? "/provider/dashboard" : "/dashboard");
       }, 800);
     } catch (err: any) {
       setError(err.message);
@@ -622,16 +623,16 @@ export default function LoginPage() {
             {isProvider ? (
               <>
                 Joining as a client?{" "}
-                <a href="/login/client" style={{ color: "#a78bfa", fontWeight: 700 }}>
+                <Link href="/login/client" style={{ color: "#a78bfa", fontWeight: 700 }}>
                   Client Login
-                </a>
+                </Link>
               </>
             ) : (
               <>
                 Are you a service provider?{" "}
-                <a href="/login/provider" style={{ color: "#22d3ee", fontWeight: 700 }}>
+                <Link href="/login/provider" style={{ color: "#22d3ee", fontWeight: 700 }}>
                   Provider Login
-                </a>
+                </Link>
               </>
             )}
           </p>

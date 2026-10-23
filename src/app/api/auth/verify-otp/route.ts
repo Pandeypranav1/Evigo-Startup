@@ -67,33 +67,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // Ensure profile row exists in public.profiles for first-time user
-    try {
-      const adminSupabase = createAdminClient();
-      const { data: existingProfile } = await adminSupabase
-        .from("profiles")
-        .select("id")
-        .eq("id", data.user.id)
-        .maybeSingle();
-
-      if (!existingProfile) {
-        await adminSupabase.from("profiles").upsert({
-          id: data.user.id,
-          email: normalizedEmail,
-          role: effectiveRole,
-          full_name: data.user.user_metadata?.full_name || normalizedEmail.split("@")[0],
-        });
-      }
-    } catch (profErr) {
-      console.warn("[verify-otp] Profile setup warning:", profErr);
-    }
+    // Create once without overwriting the role of an existing account.
+    const adminSupabase = createAdminClient();
+    const { error: createError } = await adminSupabase.from("profiles").upsert({
+      id: data.user.id,
+      email: data.user.email || normalizedEmail,
+      role: effectiveRole,
+      full_name: data.user.user_metadata?.full_name || normalizedEmail.split("@")[0],
+    }, { onConflict: "id", ignoreDuplicates: true });
+    if (createError) throw createError;
+    const { data: profile, error: profileError } = await adminSupabase.from("profiles")
+      .select("role,avatar_url").eq("id", data.user.id).single();
+    if (profileError || !profile) throw profileError || new Error("Profile unavailable");
 
     return NextResponse.json({
       success: true,
       user: {
         id: data.user.id,
         email: data.user.email || normalizedEmail,
-        role: effectiveRole,
+        role: profile.role === "provider" ? "provider" : "client",
+        profileImage: profile.avatar_url || undefined,
         createdAt: data.user.created_at || new Date().toISOString(),
       },
       // Return session so client can establish it

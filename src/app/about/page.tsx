@@ -44,8 +44,8 @@ export default function AboutPage() {
               <div className="flex gap-4">
                 <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center text-xl shrink-0">🤝</div>
                 <div>
-                  <h3 className="text-xl font-bold text-zinc-900 mb-2">Verified Partners Only</h3>
-                  <p className="text-zinc-600 font-medium leading-relaxed">Every professional on Evigo goes through a strict verification process. We ensure high quality and reliable services for every event.</p>
+                  <h3 className="text-xl font-bold text-zinc-900 mb-2">Provider Approval</h3>
+                  <p className="text-zinc-600 font-medium leading-relaxed">Providers must be approved before accepting requests. Review their details and confirm service requirements before booking.</p>
                 </div>
               </div>
               <div className="flex gap-4">

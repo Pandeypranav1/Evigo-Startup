@@ -1,11 +1,15 @@
 # Evigo — Bihar's Event & Tourism Marketplace
 
-[![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16.4-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss)](https://tailwindcss.com)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth-3ECF8E?logo=supabase)](https://supabase.com)
 
 ---
+
+## Current deployment status
+
+The non-payment readiness audit and setup/rollback instructions are in [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). Supabase Auth and PostgreSQL are authoritative for accounts, providers and bookings. MongoDB models and Firebase dependencies are legacy; no current API imports them. Static hotel entries are unverified information, not live inventory. Requests require a signed-in account and an eligible database provider. Local jobs are not implemented. Do not use the historical feature checklist below as proof of live verification.
 
 ## 🌏 Project Overview
 
@@ -16,7 +20,7 @@ The platform serves two distinct audiences:
 - **Clients** browsing and booking event professionals or hotel partners for celebrations in Bihar
 - **Providers** (vendors / hotels) onboarding to list their services and receive bookings through a dedicated provider dashboard
 
-The current launch focus is **Jamui district**: 4 verified hotel partners (Usha Nand Palace, GenX Brij, Hotel JP Grand, Hotel Nirmala Inn) and 8 curated tourism destinations (Simultala Hill Station, Kshatriya Kund Gram, Nagi Dam, etc.).
+The current launch focus is **Jamui district**: historical hotel information entries awaiting partner verification (Usha Nand Palace, GenX Brij, Hotel JP Grand, Hotel Nirmala Inn) and 8 curated tourism destinations (Simultala Hill Station, Kshatriya Kund Gram, Nagi Dam, etc.).
 
 ---
 
@@ -26,7 +30,7 @@ The current launch focus is **Jamui district**: 4 verified hotel partners (Usha 
 
 | Layer | Technology |
 |---|---|
-| **Framework** | [Next.js 16.2.4](https://nextjs.org) (App Router, Server Components, API Routes) |
+| **Framework** | [Next.js 16.4.2](https://nextjs.org) (App Router, Server Components, API Routes) |
 | **Language** | TypeScript 5.x |
 | **Styling** | Tailwind CSS v4 (via `@tailwindcss/postcss`) + Vanilla CSS in `globals.css` |
 | **UI Primitives** | Radix UI, shadcn, class-variance-authority, tailwind-merge |
@@ -89,7 +93,7 @@ startup/
 │   │   └── WhatsAppButton.tsx    # WhatsApp CTA widget
 │   ├── lib/
 │   │   └── constants.ts          # All static data: categories, hotel partners,
-│   │                             #   tourism places (with verified GPS), city resolver
+│   │                             #   tourism places (precise GPS withheld), city resolver
 │   ├── models/                   # Mongoose schemas (MongoDB)
 │   │   ├── Provider.ts
 │   │   ├── Booking.ts
@@ -149,10 +153,10 @@ startup/
 ```ts
 // SERVICE_CATEGORIES — ["Catering", "Photography", "DJ", "Mehendi & Makeup", "Restaurant"]
 
-// EVENT_VENUES (HOTEL_PARTNERS) — 4 verified Jamui hotels with images, GPS, pricing,
+// EVENT_VENUES (HOTEL_PARTNERS) — historical Jamui hotel entries (unverified) with images, GPS, pricing,
 //   safety features, and services
 
-// TOURISM_PLACES — 8 Jamui district tourism places with verified GPS coordinates,
+// TOURISM_PLACES — Jamui destination information; precise coordinates withheld,
 //   images, category, description, and featured flag
 
 // TOURISM_DISTRICTS — 8 Bihar districts (Jamui active, 7 Coming Soon)
@@ -170,7 +174,7 @@ startup/
 **AI Travel Assistant:**
 1. User types a query in the AI drawer on `/services/tourism`
 2. POST → `/api/ai/tourism-assistant` with the message
-3. API checks IP-based rate limit (30 queries/day per IP)
+3. API requires sign-in and checks a shared database quota (30 queries/day per account)
 4. Provider/vendor searches query `public.providers` server-side using the publishable Supabase client, under the caller's existing RLS permissions. Only approved, verified, bookable listings are returned; category, city/service area and listed-price budget filters are supported.
 5. Empty provider searches direct users to `/contact`. Listing query/permission failures are returned as errors rather than treated as empty search results.
 6. Other tourism queries use Claude 3 Haiku when `ANTHROPIC_API_KEY` is configured, or the built-in responder for known places.
@@ -187,7 +191,7 @@ Opens in new tab — no in-page map component is loaded for Directions.
 
 ---
 
-## ✅ Current Feature Checklist
+## Historical feature checklist (not a readiness assessment)
 
 ### Core Services (Event Marketplace)
 - [x] **Catering** — browse and book verified caterers in Bihar
@@ -198,7 +202,7 @@ Opens in new tab — no in-page map component is loaded for Directions.
 
 ### Travel & Tourism
 - [x] **District-wise explorer** (8 districts listed; Jamui fully active)
-- [x] **Jamui tourism places** — 8 verified places with photos, GPS, categories
+- [x] **Jamui tourism places** — destination notes with photos and source links; precise map coordinates are withheld pending verification
 - [x] **Interactive Leaflet map** — district overview map (Show/Hide toggle)
 - [x] **Category filter chips** — filter by Nature, Pilgrimage, Heritage
 - [x] **AI Itinerary Planner** — ask for custom trips (30 queries/day)
@@ -240,7 +244,7 @@ Opens in new tab — no in-page map component is loaded for Directions.
 
 ### 1. Install Dependencies
 ```bash
-npm install
+npm ci
 ```
 
 ### 2. Environment Variables
@@ -317,7 +321,7 @@ npm run build       # Production bundle
 - [ ] **MongoDB → Supabase migration**: Currently both MongoDB (Mongoose) and Supabase are in use — Provider/Booking models should be migrated to Supabase tables for a single database layer
 - [ ] **Firebase vs Supabase auth**: Both Firebase and Supabase auth packages are in `package.json` — pick one and remove the other to reduce bundle size
 - [ ] **`GOOGLE_MAPS_API_KEY`**: The `nearby-hotels` API route may reference this but the project currently uses OpenStreetMap/Leaflet client-side. If scaling up map features, evaluate Google Maps Platform
-- [ ] **AI Assistant rate limiting**: Current rate limiter is in-memory (resets on server restart / deployment). For production, migrate to a Redis or Supabase-backed counter
+- [x] **AI Assistant rate limiting**: Shared database counter implemented; requires the non-payment security migration. Live behavior is not yet verified.
 - [ ] **`head_page.tsx`** (45 KB) in project root — appears to be a legacy file; should be archived or removed
 
 ---

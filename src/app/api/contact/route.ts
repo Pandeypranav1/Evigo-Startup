@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase';
+import { consumeRequestLimit, requestIdentity } from '@/lib/request-limit';
 
 interface ContactMessage {
   name: string;
@@ -10,11 +11,11 @@ interface ContactMessage {
 function validatePayload(payload: any): string | null {
   if (!payload) return 'Invalid request body';
   const { name, email, message } = payload as ContactMessage;
-  if (!name?.trim()) return 'Name is required';
-  if (!email?.trim()) return 'Email is required';
+  if (typeof name !== 'string' || !name.trim() || name.length > 150) return 'Name is required';
+  if (typeof email !== 'string' || !email.trim() || email.length > 254) return 'Email is required';
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) return 'Invalid email address';
-  if (!message?.trim()) return 'Message is required';
+  if (typeof message !== 'string' || !message.trim() || message.length > 5000) return 'Message is required';
   return null;
 }
 
@@ -28,21 +29,10 @@ export async function POST(req: Request) {
 
     const { name, email, message } = payload as ContactMessage;
 
-    // Create a Supabase client with the anon key on the server side.
-    // The service role key in .env.local is not a standard JWT, so it does
-    // not bypass RLS. Instead we use the anon key and rely on the existing
-    // RLS INSERT policy that was configured for the contact_messages table.
-    // The anon key is safe here because this code runs only on the server.
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
+    if (!await consumeRequestLimit("contact", requestIdentity(req), 5, 3600)) {
+      return NextResponse.json({ error: "Too many support requests. Please try again later." }, { status: 429 });
+    }
+    const supabase = createAdminClient();
 
     // Do not chain .select() — the RLS policy may only allow INSERT, not SELECT.
     const { error } = await supabase

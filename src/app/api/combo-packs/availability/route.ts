@@ -1,3 +1,5 @@
+import { comboComponentsAvailable } from "@/lib/combo-eligibility";
+import { validBookingDate } from "@/lib/booking-workflow";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 import { DEFAULT_COMBO_PACKS } from "@/lib/combo";
@@ -16,6 +18,7 @@ export async function POST(request: Request) {
       );
     }
 
+    if (start_date && (!validBookingDate(start_date) || (end_date && (!validBookingDate(end_date) || end_date < start_date)))) return NextResponse.json({ error: "Invalid booking dates" }, { status: 400 });
     if (start_date) {
       const selected = new Date(start_date);
       const today = new Date();
@@ -38,12 +41,9 @@ export async function POST(request: Request) {
       query = query.eq("slug", slug);
     }
 
-    const { data: dbPack } = await query.maybeSingle();
-    const pack =
-      dbPack ||
-      DEFAULT_COMBO_PACKS.find(
-        (p) => p.id === combo_pack_id || p.slug === slug
-      );
+    const { data: dbPack, error } = await query.maybeSingle();
+    if (error) throw error;
+    const pack = dbPack;
 
     if (!pack) {
       return NextResponse.json(
@@ -60,15 +60,20 @@ export async function POST(request: Request) {
       });
     }
 
+    const isAvailable = await comboComponentsAvailable(supabase, pack.items);
     return NextResponse.json({
       success: true,
-      isAvailable: true,
+      isAvailable,
+      confirmationRequired: true,
+      reason: isAvailable
+        ? "Availability on your requested dates must be confirmed by each provider."
+        : "One or more services in this package are currently unavailable.",
       combo_pack_id: pack.id,
       name: pack.name,
       city: pack.city,
       duration: pack.duration,
       included_services_count: pack.items?.length || 0,
-      verified_providers: true,
+
     });
   } catch (err: any) {
     console.error("[POST /api/combo-packs/availability] Error:", err);

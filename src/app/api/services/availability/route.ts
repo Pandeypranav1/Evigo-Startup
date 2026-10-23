@@ -1,3 +1,4 @@
+import { getAuthenticatedUser } from "@/lib/server";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 
@@ -5,6 +6,8 @@ export const runtime = "nodejs";
 
 export async function PATCH(request: Request) {
   try {
+    const { user } = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     const body = await request.json();
     const { service_id, is_available, provider_id, user_id } = body;
 
@@ -32,15 +35,15 @@ export async function PATCH(request: Request) {
     }
 
     // Verify ownership if user_id or provider_id is provided
-    if (user_id) {
+    {
       const { data: providerRows } = await supabase
         .from("providers")
         .select("id")
-        .eq("user_id", user_id);
+        .eq("user_id", user.id);
 
       const ownedProviderIds = (providerRows || []).map((p) => p.id);
       // Allow if service belongs to one of user's providers or user is managing FaabCab
-      if (!ownedProviderIds.includes(service.provider_id) && service.provider_id !== "6105241d-1d38-4274-b912-eea67f4c32b0") {
+      if (!ownedProviderIds.includes(service.provider_id)) {
         return NextResponse.json(
           { success: false, error: "Unauthorized: You do not own this service" },
           { status: 403 }
@@ -58,7 +61,7 @@ export async function PATCH(request: Request) {
     if (updateErr) {
       console.error("[PATCH /api/services/availability] Update error:", updateErr);
       return NextResponse.json(
-        { success: false, error: updateErr.message },
+        { success: false, error: "Unable to complete this request. Please try again." },
         { status: 500 }
       );
     }

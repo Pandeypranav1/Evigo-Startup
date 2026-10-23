@@ -1,36 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
-import { getAuthenticatedUser } from "@/lib/server";
-import { isAuthorizedAdmin } from "@/lib/admin";
+import { authorizeAccountAdmin as authorizeAdmin } from "@/lib/account-security";
 import { buildProviderReviewUpdate } from "@/lib/provider-workflow";
 
 export const runtime = "nodejs";
-
-async function authorizeAdmin() {
-    const { user, error } = await getAuthenticatedUser();
-    if (error) {
-        console.warn("[admin/providers] session verification failed:", error.code);
-    }
-    if (!user) {
-        return {
-            response: NextResponse.json(
-                { success: false, error: "A valid signed-in session is required.", code: "AUTHENTICATION_REQUIRED" },
-                { status: 401 }
-            ),
-        };
-    }
-
-    if (!isAuthorizedAdmin(user)) {
-        return {
-            response: NextResponse.json(
-                { success: false, error: "This account is not authorized to review provider applications.", code: "ADMIN_REQUIRED" },
-                { status: 403 }
-            ),
-        };
-    }
-
-    return { user };
-}
 
 export async function GET(request: Request) {
     try {
@@ -53,7 +26,7 @@ export async function GET(request: Request) {
 
         if (error) {
             console.error("[GET /api/admin/providers] query error:", error);
-            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+            return NextResponse.json({ success: false, error: "Unable to complete this request. Please try again." }, { status: 500 });
         }
 
         const providers = allProviders ?? [];
@@ -101,7 +74,7 @@ export async function PATCH(request: Request) {
         if (action === "approve") {
             const { data, error } = await supabase
                 .from("providers")
-                .update(buildProviderReviewUpdate("approve"))
+                .update({ ...buildProviderReviewUpdate("approve"), reviewed_by: authorization.user.id, reviewed_at: new Date().toISOString() })
                 .eq("id", providerId)
                 .eq("registration_status", "pending")
                 .select()
@@ -131,7 +104,7 @@ export async function PATCH(request: Request) {
 
         const { data, error } = await supabase
             .from("providers")
-            .update(buildProviderReviewUpdate("reject", reason))
+            .update({ ...buildProviderReviewUpdate("reject", reason), reviewed_by: authorization.user.id, reviewed_at: new Date().toISOString() })
             .eq("id", providerId)
             .eq("registration_status", "pending")
             .select()

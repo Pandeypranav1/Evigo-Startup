@@ -93,8 +93,8 @@ export function Header() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
+    if (!await signOut()) { window.alert("Sign out failed. Please try again."); return; }
     router.push("/");
     setMenuOpen(false);
   };
@@ -191,6 +191,8 @@ export function Header() {
       {/* Mobile Menu Slide-in Panel */}
       <div
         id="mobile-navigation"
+        inert={!menuOpen}
+        aria-hidden={!menuOpen}
         className={`fixed top-0 right-0 z-[56] h-full w-[min(340px,88vw)] bg-[#0F172A] border-l border-white/10 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out xl:hidden flex flex-col ${menuOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
       >

@@ -14,6 +14,7 @@
 import { useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import Link from "next/link";
 import {
   HOTEL_PARTNERS,
   BIHAR_CITIES,
@@ -348,6 +349,16 @@ export function NearbyHotelsV2() {
     setOriginCoords(null);
   }, []);
 
+  if (HOTEL_PARTNERS.length === 0) {
+    return (
+      <section className="rounded-2xl border border-white/10 bg-zinc-900 p-6 text-center" aria-labelledby="hotel-map-status">
+        <h3 id="hotel-map-status" className="text-xl font-bold text-white">Hotel map coming soon</h3>
+        <p className="mt-2 text-sm text-gray-400">No verified hotel coordinates are currently published. Live room availability and reservations are not provided.</p>
+        <Link href="/contact" className="mt-4 inline-block rounded-xl bg-violet-600 px-5 py-2 text-sm font-bold text-white">Contact Evigo →</Link>
+      </section>
+    );
+  }
+
   return (
     <>
       <div
@@ -364,13 +375,13 @@ export function NearbyHotelsV2() {
               className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-4 text-[13px] font-bold text-cyan-400"
               style={{ background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.3)" }}
             >
-              📍 Evigo Verified Hotels & Stays
+              📍 Evigo Hotel Directory
             </div>
             <h3 className="text-2xl sm:text-3xl font-black text-white leading-tight">
               Find Hotels Near You
             </h3>
             <p className="text-sm text-gray-400 mt-2 font-medium max-w-md">
-              Search verified partner hotels in Jamui and across Bihar using city name or live GPS.
+              Search published hotel locations by city or your location. Room availability is not provided.
             </p>
           </div>
 
@@ -441,7 +452,7 @@ export function NearbyHotelsV2() {
               className="px-3 py-1.5 rounded-xl text-xs font-bold text-cyan-300 transition hover:bg-cyan-500/20 cursor-pointer border"
               style={{ background: "rgba(6,182,212,0.1)", borderColor: "rgba(6,182,212,0.25)" }}
             >
-              🎯 Show Jamui ({HOTEL_PARTNERS.length} Hotels)
+              🎯 Search Jamui
             </button>
           </div>
 
@@ -528,9 +539,9 @@ export function NearbyHotelsV2() {
               🗺️
             </div>
             <div>
-              <p className="text-white font-bold text-base mb-1">Find Verified Hotels Near You</p>
+              <p className="text-white font-bold text-base mb-1">Search Published Hotel Locations</p>
               <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
-                Select a city or use your GPS location to discover verified partner hotels nearby.
+                Select a city or use your location to search the published directory.
               </p>
             </div>
             <button
@@ -541,7 +552,7 @@ export function NearbyHotelsV2() {
               className="px-5 py-2.5 rounded-xl text-xs font-bold text-white border-none cursor-pointer transition-all hover:opacity-90"
               style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", boxShadow: "0 2px 12px rgba(139,92,246,0.3)" }}
             >
-              🎯 Quick Start: Show Jamui Hotels
+              🎯 Search Jamui
             </button>
           </div>
         )}
@@ -598,18 +609,15 @@ export function NearbyHotelsV2() {
                 <div className="text-3xl mb-2">🏨</div>
                 <div className="text-white font-bold text-base">No verified partners within {radiusKm} km</div>
                 <p className="text-gray-400 text-xs max-w-sm mx-auto mt-1 leading-relaxed">
-                  We currently have verified partner hotels in Jamui. Increase your search radius to 30 km or search for &quot;Jamui&quot;.
+                  No verified hotel coordinates are currently published. Contact Evigo for help; live room availability is not provided.
                 </p>
-                <button
-                  onClick={() => {
-                    setCityInput("Jamui");
-                    executeCitySearch("Jamui", 30);
-                  }}
-                  className="mt-4 px-5 py-2 rounded-xl text-xs font-bold text-white border-none cursor-pointer"
+                <Link
+                  href="/contact"
+                  className="mt-4 inline-block px-5 py-2 rounded-xl text-xs font-bold text-white"
                   style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)" }}
                 >
-                  View Jamui Hotels →
-                </button>
+                  Contact Evigo →
+                </Link>
               </div>
             )}
           </div>

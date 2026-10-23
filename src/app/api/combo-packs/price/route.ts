@@ -1,3 +1,5 @@
+import { comboComponentsAvailable } from "@/lib/combo-eligibility";
+import { validBookingDate } from "@/lib/booking-workflow";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 import { DEFAULT_COMBO_PACKS, calculateComboPrice } from "@/lib/combo";
@@ -27,11 +29,8 @@ export async function POST(request: Request) {
 
     const { data: dbPack, error } = await query.maybeSingle();
 
-    const pack =
-      dbPack ||
-      DEFAULT_COMBO_PACKS.find(
-        (p) => p.id === combo_pack_id || p.slug === slug
-      );
+    if (error) throw error;
+    const pack = dbPack;
 
     if (!pack) {
       return NextResponse.json(
@@ -40,7 +39,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const guests = Math.max(1, Number(guest_count) || 1);
+    if (!Number.isInteger(Number(guest_count)) || Number(guest_count) < 1 || Number(guest_count) > 10000) return NextResponse.json({ error: "Invalid guest count" }, { status: 400 });
+    if (!pack.is_active || !await comboComponentsAvailable(supabase, pack.items)) return NextResponse.json({ error: "Package services unavailable" }, { status: 409 });
+    const guests = Number(guest_count);
     const priceCalculation = calculateComboPrice(
       pack.base_price,
       pack.discount,

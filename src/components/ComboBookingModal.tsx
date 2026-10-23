@@ -17,23 +17,24 @@ export function ComboBookingModal({ pack, onClose, onBookingSuccess }: ComboBook
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [customerEmail, setCustomerEmail] = useState(user?.email || "");
+  const customerEmail = user?.email || "";
   const [startDate, setStartDate] = useState(
-    new Date(Date.now() + 86400000).toISOString().split("T")[0]
+    () => new Date(Date.now() + 86400000).toISOString().split("T")[0]
   );
   const [endDate, setEndDate] = useState(
-    new Date(Date.now() + 2 * 86400000).toISOString().split("T")[0]
+    () => new Date(Date.now() + 2 * 86400000).toISOString().split("T")[0]
   );
   const [guestCount, setGuestCount] = useState(1);
   const [pickupLocation, setPickupLocation] = useState("");
   const [dropLocation, setDropLocation] = useState("");
   const [specialRequests, setSpecialRequests] = useState("");
 
-  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [checkingAvailability, setCheckingAvailability] = useState(true);
+  const [availabilityAttempt, setAvailabilityAttempt] = useState(0);
   const [availabilityState, setAvailabilityState] = useState<{
     available: boolean;
     reason?: string;
-  }>({ available: true });
+  }>({ available: false, reason: "Checking package availability..." });
 
   const [submitting, setSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -55,7 +56,11 @@ export function ComboBookingModal({ pack, onClose, onBookingSuccess }: ComboBook
   useEffect(() => {
     let active = true;
     const check = async () => {
-      if (!startDate) return;
+      if (!startDate) {
+        setAvailabilityState({ available: false, reason: "Choose a start date to check availability." });
+        setCheckingAvailability(false);
+        return;
+      }
       setCheckingAvailability(true);
       try {
         const res = await fetch("/api/combo-packs/availability", {
@@ -71,13 +76,16 @@ export function ComboBookingModal({ pack, onClose, onBookingSuccess }: ComboBook
         if (active) {
           if (res.ok && data.success) {
             setAvailabilityState({
-              available: data.isAvailable !== false,
+              available: data.isAvailable === true,
               reason: data.reason,
             });
+          } else {
+            setAvailabilityState({ available: false, reason: data.error || "Unable to check availability. Please retry." });
           }
         }
       } catch (err) {
         console.warn("[ComboBookingModal] Availability check error:", err);
+        if (active) setAvailabilityState({ available: false, reason: "Unable to check availability. Please retry." });
       } finally {
         if (active) setCheckingAvailability(false);
       }
@@ -87,11 +95,15 @@ export function ComboBookingModal({ pack, onClose, onBookingSuccess }: ComboBook
     return () => {
       active = false;
     };
-  }, [pack.id, startDate, endDate]);
+  }, [pack.id, startDate, endDate, availabilityAttempt]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBookingError(null);
+    if (submitting || checkingAvailability || !availabilityState.available) {
+      setBookingError(availabilityState.reason || "Check package availability before submitting.");
+      return;
+    }
 
     if (!customerName.trim() || !customerPhone.trim() || !startDate) {
       setBookingError("Please fill in your name, contact phone number, and scheduled start date.");
@@ -258,7 +270,8 @@ export function ComboBookingModal({ pack, onClose, onBookingSuccess }: ComboBook
               {/* Availability Notice */}
               {!availabilityState.available && (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-300">
-                  ⚠️ {availabilityState.reason || "This date may have limited availability."}
+                  ⚠️ {availabilityState.reason || "This package is currently unavailable."}
+                  {!checkingAvailability && <button type="button" onClick={() => setAvailabilityAttempt((attempt) => attempt + 1)} className="ml-2 underline">Retry availability</button>}
                 </div>
               )}
 
@@ -304,14 +317,15 @@ export function ComboBookingModal({ pack, onClose, onBookingSuccess }: ComboBook
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                      Email Address (Optional)
+                    <label htmlFor="combo-account-email" className="block text-xs font-semibold text-zinc-300 mb-1">
+                      Account email
                     </label>
                     <input
+                      id="combo-account-email"
                       type="email"
                       value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="e.g. rahul@example.com"
+                      readOnly
+                      placeholder="No account email available"
                       className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-cyan-400 focus:outline-none"
                     />
                   </div>
@@ -401,18 +415,18 @@ export function ComboBookingModal({ pack, onClose, onBookingSuccess }: ComboBook
 
                 <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="text-xs text-zinc-400">
-                    🔒 Direct real-time booking via verified providers.
+                    Requests require confirmation from each provider.
                   </div>
 
                   <button
                     type="submit"
-                    disabled={submitting || checkingAvailability}
+                    disabled={submitting || checkingAvailability || !availabilityState.available}
                     className="w-full sm:w-auto min-w-[200px] rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3.5 text-sm font-bold text-white shadow-xl shadow-cyan-500/25 transition-all hover:scale-105 hover:brightness-110 disabled:opacity-50"
                   >
                     {submitting ? (
                       <span className="flex items-center justify-center gap-2">
                         <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                        <span>Confirming Combo...</span>
+                        <span>Sending request...</span>
                       </span>
                     ) : (
                       `Book Combo (₹${pack.final_price.toLocaleString("en-IN")})`
@@ -437,7 +451,7 @@ export function ComboBookingModal({ pack, onClose, onBookingSuccess }: ComboBook
                 Booking ID #{confirmedBooking.id.slice(-6).toUpperCase()}
               </h2>
               <p className="mt-2 text-sm text-zinc-300 max-w-md mx-auto leading-relaxed">
-                Your combo booking for <strong>{confirmedBooking.combo_name || pack.name}</strong> has been transmitted to assigned providers in real time.
+                Your combo booking for <strong>{confirmedBooking.combo_name || pack.name}</strong> has been saved and is awaiting confirmation from the assigned providers.
               </p>
             </div>
 

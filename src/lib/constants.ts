@@ -15,7 +15,7 @@ export const CATEGORY_TAGLINE: Record<ServiceCategory, string> = {
   Photography: "Wedding shoots, candid moments, and reels",
   DJ: "Party-ready sound, lights, and vibes",
   "Mehendi & Makeup": "Bridal mehendi and makeover artists",
-  Restaurant: "Verified hotels, banquets, and fine dining",
+  Restaurant: "Explore hotels, banquets, and dining information",
   Transport: "Cabs, car rentals, and local travel",
 };
 
@@ -124,108 +124,9 @@ export interface HotelPartner {
   mapillaryImageId?: string;
 }
 
-export const HOTEL_PARTNERS: HotelPartner[] = [
-  {
-    id: "hotel-usha-nand-palace",
-    name: "Hotel Usha Nand Palace",
-    address: "Near Town Centre",
-    city: "Jamui",
-    districtBihar: "Jamui",
-    lat: 24.9278,
-    lng: 86.2265,
-    category: "hotel",
-    photos: [
-      "/partners/events/usha_nand/usha_nand_1.png",
-      "/partners/events/usha_nand/usha_nand_2.jpg",
-      "/partners/events/usha_nand/usha_nand_3.jpg",
-      "/partners/events/usha_nand/usha_nand_4.jpg",
-      "/partners/events/usha_nand/usha_nand_5.jpg",
-    ],
-    phone: "+91 98765 00001",
-    priceRange: "₹1,500–₹4,000/night",
-    description: "Premium rooms & grand banquet — ideal for weddings, corporate events, and family functions.",
-  },
-  {
-    id: "genx-brij",
-    name: "GenX Brij",
-    address: "Main Road",
-    city: "Jamui",
-    districtBihar: "Jamui",
-    lat: 24.9240,
-    lng: 86.2210,
-    category: "hotel",
-    photos: [
-      "/partners/events/genx_brij/genx_brij_1.png",
-      "/partners/events/genx_brij/genx_brij_2.png",
-      "/partners/events/genx_brij/genx_brij_3.png",
-      "/partners/events/genx_brij/genx_brij_4.png",
-      "/partners/events/genx_brij/genx_brij_5.png",
-    ],
-    phone: "+91 98765 00002",
-    priceRange: "₹1,200–₹3,500/night",
-    description: "Luxury stay with modern interiors, Punjabi Junction restaurant, and Bake & Chill café.",
-  },
-  {
-    id: "hotel-jp-grand",
-    name: "Hotel JP Grand",
-    address: "JP Grand Road",
-    city: "Jamui",
-    districtBihar: "Jamui",
-    lat: 24.9310,
-    lng: 86.2290,
-    category: "hotel",
-    photos: [
-      "/partners/events/jp_grand/jp_grand_1.png",
-      "/partners/events/jp_grand/jp_grand_2.png",
-      "/partners/events/jp_grand/jp_grand_3.png",
-      "/partners/events/jp_grand/jp_grand_4.png",
-      "/partners/events/jp_grand/jp_grand_5.png",
-    ],
-    phone: "+91 98765 00003",
-    priceRange: "₹1,000–₹3,000/night",
-    description: "Elegant property with serene garden lounge, fine dining, and well-equipped banquet facilities.",
-  },
-  {
-    id: "hotel-nirmala-inn",
-    name: "Hotel Nirmala Inn",
-    address: "Station Road",
-    city: "Jamui",
-    districtBihar: "Jamui",
-    lat: 24.9215,
-    lng: 86.2230,
-    category: "hotel",
-    photos: [
-      "/partners/events/nirmala_inn/nirmala_inn_1.png",
-      "/partners/events/nirmala_inn/nirmala_inn_2.png",
-      "/partners/events/nirmala_inn/nirmala_inn_3.png",
-      "/partners/events/nirmala_inn/nirmala_inn_4.png",
-      "/partners/events/nirmala_inn/nirmala_inn_5.png",
-    ],
-    phone: "+91 98765 00004",
-    priceRange: "₹800–₹2,500/night",
-    description: "Fully A/C banquet hall, multi-cuisine restaurant, family suites and conference facilities.",
-  },
-  {
-    id: "hotel-shagun-vatika",
-    name: "Shagun Vatika",
-    address: "Jamui, Bihar — Premier hotel & banquet venue",
-    city: "Jamui",
-    districtBihar: "Jamui",
-    lat: 24.9278,
-    lng: 86.2265,
-    category: "hotel",
-    photos: [
-      "/partners/events/shagun_vatika/shagun_vatika_1.jpeg",
-      "/partners/events/shagun_vatika/shagun_vatika_2.jpeg",
-      "/partners/events/shagun_vatika/shagun_vatika_3.jpeg",
-      "/partners/events/shagun_vatika/shagun_vatika_4.jpeg",
-      "/partners/events/shagun_vatika/shagun_vatika_5.jpeg",
-    ],
-    phone: "+91 9473455717",
-    priceRange: "₹1,500–₹4,000/night",
-    description: "Best hotels and banquet hall booking service providers in Jamui.",
-  }
-];
+// No hotels currently have independently verified coordinates and partner details.
+// Add records only after partner verification; do not use city-center coordinates.
+export const HOTEL_PARTNERS: HotelPartner[] = [];
 
 // ── Bihar City Centroids (for city-dropdown & manual search fallback) ──
 // Used as the origin lat/lng when searching. No external geocoding API needed.
@@ -324,10 +225,8 @@ export const EVENT_VENUES: EventVenue[] = [
     name: "Hotel Usha Nand Palace",
     location: "Jamui, Bihar",
     city: "Jamui",
-    address: "Jamui, Bihar — Near Town Centre",
-    phone: "+91 98765 00001",
-    priceRange: "₹1,500–₹4,000/night",
-    description: "Premium rooms & grand banquet — ideal for weddings, corporate events, and family functions.",
+    address: "Address awaiting partner verification",
+
     images: [
       "/partners/events/usha_nand/usha_nand_1.png",
       "/partners/events/usha_nand/usha_nand_2.jpg",
@@ -335,20 +234,17 @@ export const EVENT_VENUES: EventVenue[] = [
       "/partners/events/usha_nand/usha_nand_4.jpg",
       "/partners/events/usha_nand/usha_nand_5.jpg",
     ],
-    googleRating: 4.7,
-    reviewCount: 57,
-    safetyFeatures: ["CCTV Surveillance", "Fire Safety"],
-    services: ["Room Booking", "Banquet Hall", "Restaurant & Dining", "Conference Room"],
+
+    safetyFeatures: [],
+    services: [],
   },
   {
     id: "genx-brij",
     name: "GenX Brij",
     location: "Jamui, Bihar",
     city: "Jamui",
-    address: "Jamui, Bihar — Main Road",
-    phone: "+91 98765 00002",
-    priceRange: "₹1,200–₹3,500/night",
-    description: "Luxury stay with modern interiors, Punjabi Junction restaurant, and Bake & Chill café.",
+    address: "Address awaiting partner verification",
+
     images: [
       "/partners/events/genx_brij/genx_brij_1.png",
       "/partners/events/genx_brij/genx_brij_2.png",
@@ -356,20 +252,17 @@ export const EVENT_VENUES: EventVenue[] = [
       "/partners/events/genx_brij/genx_brij_4.png",
       "/partners/events/genx_brij/genx_brij_5.png",
     ],
-    googleRating: 4.5,
-    reviewCount: 42,
-    safetyFeatures: ["CCTV Surveillance", "Fire Safety", "24/7 Security"],
-    services: ["Room Booking", "Banquet Hall Booking", "Restaurant & Café", "Event Catering"],
+
+    safetyFeatures: [],
+    services: [],
   },
   {
     id: "hotel-jp-grand",
     name: "Hotel JP Grand",
     location: "Jamui, Bihar",
     city: "Jamui",
-    address: "Jamui, Bihar — JP Grand Road",
-    phone: "+91 98765 00003",
-    priceRange: "₹1,000–₹3,000/night",
-    description: "Elegant property with serene garden lounge, fine dining, and well-equipped banquet facilities.",
+    address: "Address awaiting partner verification",
+
     images: [
       "/partners/events/jp_grand/jp_grand_1.png",
       "/partners/events/jp_grand/jp_grand_2.png",
@@ -377,20 +270,17 @@ export const EVENT_VENUES: EventVenue[] = [
       "/partners/events/jp_grand/jp_grand_4.png",
       "/partners/events/jp_grand/jp_grand_5.png",
     ],
-    googleRating: 4.6,
-    reviewCount: 38,
-    safetyFeatures: ["CCTV Surveillance", "Fire Safety", "24/7 Security"],
-    services: ["Room Booking", "Banquet Hall Booking", "Fine Dining", "Outdoor Catering"],
+
+    safetyFeatures: [],
+    services: [],
   },
   {
     id: "hotel-nirmala-inn",
     name: "Hotel Nirmala Inn",
     location: "Jamui, Bihar",
     city: "Jamui",
-    address: "Jamui, Bihar — Station Road",
-    phone: "+91 98765 00004",
-    priceRange: "₹800–₹2,500/night",
-    description: "Fully A/C banquet hall, multi-cuisine restaurant, family suites and conference facilities.",
+    address: "Address awaiting partner verification",
+
     images: [
       "/partners/events/nirmala_inn/nirmala_inn_1.png",
       "/partners/events/nirmala_inn/nirmala_inn_2.png",
@@ -398,20 +288,17 @@ export const EVENT_VENUES: EventVenue[] = [
       "/partners/events/nirmala_inn/nirmala_inn_4.png",
       "/partners/events/nirmala_inn/nirmala_inn_5.png",
     ],
-    googleRating: 4.4,
-    reviewCount: 29,
-    safetyFeatures: ["CCTV Surveillance", "Fire Safety", "24/7 Security"],
-    services: ["Room Booking", "Banquet Hall Booking", "Restaurant", "Conference Room", "Event Catering"],
+
+    safetyFeatures: [],
+    services: [],
   },
   {
     id: "shagun-vatika",
     name: "Shagun Vatika",
     location: "Jamui, Bihar",
     city: "Jamui",
-    address: "Jamui, Bihar — Premier hotel & banquet venue",
-    phone: "+91 9473455717",
-    priceRange: "₹1,500–₹4,000/night",
-    description: "Best hotels and banquet hall booking service providers in Jamui.",
+    address: "Address awaiting partner verification",
+
     images: [
       "/partners/events/shagun_vatika/shagun_vatika_1.jpeg",
       "/partners/events/shagun_vatika/shagun_vatika_2.jpeg",
@@ -419,10 +306,9 @@ export const EVENT_VENUES: EventVenue[] = [
       "/partners/events/shagun_vatika/shagun_vatika_4.jpeg",
       "/partners/events/shagun_vatika/shagun_vatika_5.jpeg",
     ],
-    googleRating: 4.5,
-    reviewCount: 0,
-    safetyFeatures: ["CCTV Surveillance", "Fire Safety"],
-    services: ["Room Booking", "Banquet Hall", "Restaurant & Dining", "Conference Room"],
+
+    safetyFeatures: [],
+    services: [],
   }
 ];
 
@@ -844,8 +730,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/gaya/bodh-gaya" },
     ],
     image: TOURISM_DESTINATION_IMAGES.Gaya.src,
-    lat: 24.6954,
-    lng: 84.991358,
+
+
     featured: true,
   },
   {
@@ -865,8 +751,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/rajgir" },
     ],
     image: TOURISM_DESTINATION_IMAGES.Rajgir.src,
-    lat: 25.0044,
-    lng: 85.4427,
+
+
     featured: true,
   },
   {
@@ -887,8 +773,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/nalanda" },
     ],
     image: TOURISM_DESTINATION_IMAGES.Nalanda.src,
-    lat: 25.1358,
-    lng: 85.4758,
+
+
     featured: true,
   },
   {
@@ -908,8 +794,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/vaishali" },
     ],
     image: TOURISM_DESTINATION_IMAGES.Vaishali.src,
-    lat: 25.9890,
-    lng: 85.3490,
+
+
     featured: true,
   },
   {
@@ -930,8 +816,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/madhubani" },
     ],
     image: "/images/districts/08_Madhubani.jpg",
-    lat: 26.3718,
-    lng: 86.0831,
+
+
     featured: true,
   },
   {
@@ -951,8 +837,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/patna" },
     ],
     image: TOURISM_DESTINATION_IMAGES.Patna.src,
-    lat: 25.6100,
-    lng: 85.1500,
+
+
     featured: true,
   },
   {
@@ -981,15 +867,15 @@ export const TOURISM_PLACES: TourismPlace[] = [
     overview: "The Jamui District Administration describes Simultala for its scenic hills and pleasant weather.",
     historicalBackground: "No construction date or documented historical chronology was provided in the official sources reviewed. The District Administration says Simultala is supposed to be a Tapobhumi associated with Sri Ramakrishna Paramhans; this is an attributed tradition, not established here as a proven historical event.",
     significance: "A hill and nature destination. Its association with Sri Ramakrishna is described by the District Administration as a supposition/tradition.",
-    location: "Simultala, Jamui district. The existing Evigo map coordinates are retained.",
-    howToReach: "The official district source reviewed does not publish a transport route or distance. Use the existing map directions for navigation.",
+    location: "Simultala, Jamui district. Precise coordinates are withheld until verification.",
+    howToReach: "The official district source reviewed does not publish a transport route or distance. Precise coordinates are withheld until verification; confirm the route locally before travel.",
     historySources: [
       { label: "Jamui District Administration — Places of Interest", url: "https://jamui.nic.in/places-of-interest/" },
     ],
     image: "/tourism/jamui/simultala.png",
     // Verified: Simultala Railway Station area, Jamui district
-    lat: 24.71407,
-    lng: 86.54201,
+
+
     featured: true,
   },
   {
@@ -1010,8 +896,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
     image: "/tourism/jamui/kund_gram.png",
     // Verified: ~20km west of Jamui HQ, near Lachhuar in Sikandra block
     // Source: Bihar govt records — 24°55'N, 85°50'E
-    lat: 24.9167,
-    lng: 85.8333,
+
+
     featured: true,
   },
   {
@@ -1032,8 +918,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Jamui District Administration — Places of Interest", url: "https://jamui.nic.in/places-of-interest/" },
     ],
     image: "/tourism/jamui/lachhuar.png",
-    lat: 24.9145,
-    lng: 86.0144,
+
+
     featured: true,
   },
   {
@@ -1052,8 +938,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Jamui District Administration — Places of Interest", url: "https://jamui.nic.in/places-of-interest/" },
     ],
     image: "/tourism/jamui/kali_mandir.png",
-    lat: 24.9265,
-    lng: 86.2241,
+
+
   },
   {
     id: "minto-tower-gidhaur",
@@ -1071,8 +957,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Jamui District Administration — Places of Interest", url: "https://jamui.nic.in/places-of-interest/" },
     ],
     image: "/tourism/jamui/minto_tower.png",
-    lat: 24.8735,
-    lng: 86.2296,
+
+
   },
   {
     id: "patneshwar-mandir",
@@ -1083,14 +969,14 @@ export const TOURISM_PLACES: TourismPlace[] = [
     overview: "The District Administration identifies this as a Shiva temple on Patneshwar Hill.",
     historicalBackground: "The official sources reviewed do not provide a construction date or historical chronology. The District Administration notes seasonal fairs; this is a continuing local religious tradition.",
     significance: "A Hindu place of worship dedicated to Lord Shiva and the venue of locally noted seasonal fairs.",
-    location: "Patneshwar Hill, Jamui district. The existing Evigo map coordinates are retained.",
-    howToReach: "The official district source reviewed does not publish a route or transport guidance. Use the existing map directions for navigation.",
+    location: "Patneshwar Hill, Jamui district. Precise coordinates are withheld until verification.",
+    howToReach: "The official district source reviewed does not publish a route or transport guidance. Precise coordinates are withheld until verification; confirm the route locally before travel.",
     historySources: [
       { label: "Jamui District Administration — Places of Interest", url: "https://jamui.nic.in/places-of-interest/" },
     ],
     image: "/tourism/jamui/patneshwar.png",
-    lat: 24.8434,
-    lng: 86.1686,
+
+
   },
   {
     id: "giddheshwar-temple",
@@ -1101,14 +987,14 @@ export const TOURISM_PLACES: TourismPlace[] = [
     overview: "The District Administration identifies this as a Shiva temple and notes scenic surroundings.",
     historicalBackground: "The official sources reviewed do not give a construction date or historical chronology. The District Administration records seasonal fairs; this is a continuing local religious tradition.",
     significance: "A Hindu place of worship dedicated to Lord Shiva, set in scenic surroundings according to the District Administration.",
-    location: "Giddheshwar Temple area, Jamui district. The existing Evigo map coordinates are retained.",
-    howToReach: "The official district source reviewed does not publish a route or transport guidance. Use the existing map directions for navigation.",
+    location: "Giddheshwar Temple area, Jamui district. Precise coordinates are withheld until verification.",
+    howToReach: "The official district source reviewed does not publish a route or transport guidance. Precise coordinates are withheld until verification; confirm the route locally before travel.",
     historySources: [
       { label: "Jamui District Administration — Places of Interest", url: "https://jamui.nic.in/places-of-interest/" },
     ],
     image: "/images/districts/01_Jamui.jpg",
-    lat: 24.8954,
-    lng: 86.2041,
+
+
   },
   {
     id: "nagi-dam-bhimbandh",
@@ -1119,14 +1005,14 @@ export const TOURISM_PLACES: TourismPlace[] = [
     overview: "This existing Evigo record combines Nagi Dam and Bhim Bandh. The District Administration source reviewed describes Bhim Bandh's hot-water springs and winter picnic use, but does not document Nagi Dam or establish that the two are one site.",
     historicalBackground: "No historical chronology for Nagi Dam or Bhim Bandh was supplied by the official sources reviewed. The District Administration describes Bhim Bandh as a winter picnic spot; no origin date or associated event is stated.",
     significance: "The Jamui District Administration notes hot-water springs at Bhim Bandh. The current Evigo record also names Nagi Dam, but historical or ecological claims specific to Nagi Dam require a source not located in this review.",
-    location: "The District Administration places Bhim Bandh between the Lakshmipur and Haveli Kharagpur forest area. The existing Evigo map coordinates are retained for the Nagi Dam pin; the sources reviewed do not establish that these names identify one location.",
+    location: "The District Administration places Bhim Bandh between the Lakshmipur and Haveli Kharagpur forest area. Precise coordinates are withheld until verification; the sources reviewed do not establish that these names identify one location.",
     howToReach: "The official district source reviewed does not publish a route or transport guidance. Confirm the intended destination locally before travelling because this existing record combines two place names.",
     historySources: [
       { label: "Jamui District Administration — Places of Interest (Bhim Bandh)", url: "https://jamui.nic.in/places-of-interest/" },
     ],
     image: "/tourism/jamui/nagi_dam.png",
-    lat: 24.8175,
-    lng: 86.4000,
+
+
   },
   {
     id: "golghar-patna",
@@ -1145,8 +1031,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/patna" },
     ],
     image: "/images/districts/02_Patna.jpg",
-    lat: 25.6125,
-    lng: 85.1375,
+
+
     featured: true,
   },
   {
@@ -1166,8 +1052,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/patna" },
     ],
     image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Patna_Museum_2014.jpg/1280px-Patna_Museum_2014.jpg",
-    lat: 25.6180,
-    lng: 85.1300,
+
+
   },
   {
     id: "vaishali-stupa",
@@ -1186,8 +1072,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/vaishali" },
     ],
     image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Vaishali_Stupa.jpg/1280px-Vaishali_Stupa.jpg",
-    lat: 25.9500,
-    lng: 85.3200,
+
+
   },
   {
     id: "janki-temple-sitamarhi",
@@ -1206,8 +1092,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/sitamarhi" },
     ],
     image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Sitamarhi_Janki_Temple.jpg/1280px-Sitamarhi_Janki_Temple.jpg",
-    lat: 26.5800,
-    lng: 85.7000,
+
+
   },
   {
     id: "madhubani-village-visit",
@@ -1227,8 +1113,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/madhubani" },
     ],
     image: "/images/districts/08_Madhubani.jpg",
-    lat: 26.3800,
-    lng: 86.1200,
+
+
   },
   {
     id: "rajgir-hot-springs",
@@ -1247,7 +1133,7 @@ export const TOURISM_PLACES: TourismPlace[] = [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/rajgir" },
     ],
     image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Rajgir_Hot_Springs.jpg/1280px-Rajgir_Hot_Springs.jpg",
-    lat: 25.0200,
-    lng: 85.4200,
+
+
   },
 ];

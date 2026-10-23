@@ -255,7 +255,7 @@ export function BookingDetailsModal({
             </div>
             <div>
               <span className="text-zinc-400 block mb-0.5">Created At</span>
-              <span className="font-bold text-white">{new Date(booking.created_at || Date.now()).toLocaleString()}</span>
+              <span className="font-bold text-white">{booking.created_at ? new Date(booking.created_at).toLocaleString() : "Not recorded"}</span>
             </div>
             <div>
               <span className="text-zinc-400 block mb-0.5">Travel / Event Date</span>

@@ -24,6 +24,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://evigostartup.vercel.app"),
   title: {
     default: "Evigo — Events, Travel & Tourism in Bihar",
     template: "%s | Evigo",
@@ -51,7 +52,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_IN",
-    url: "https://evigo.in",
+    url: "https://evigostartup.vercel.app",
     siteName: "Evigo",
     title: "Evigo — Events, Travel & Tourism in Bihar",
     description:

@@ -1,3 +1,5 @@
+import { providerOwnsBooking, validBookingTransition, isEligibleProvider, validBookingDate } from "@/lib/booking-workflow";
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -78,7 +80,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: true, bookings: [] });
       }
       query = isFaabCab
-        ? query.or(`provider_id.eq.faab-cab,provider_uuid.in.(${providerIds.join(",")})`)
+        ? query.or(`and(provider_id.eq.faab-cab,provider_uuid.is.null),provider_uuid.in.(${providerIds.join(",")})`)
         : query.in("provider_uuid", providerIds);
     } else {
       if (clientId && clientId !== user.id) {
@@ -87,15 +89,13 @@ export async function GET(request: Request) {
       if (email && email.toLowerCase() !== (user.email || "").toLowerCase()) {
         return NextResponse.json({ success: false, error: "Not authorized to view these bookings" }, { status: 403 });
       }
-      query = email
-        ? query.or(`client_id.eq.${user.id},customer_email.eq.${user.email}`)
-        : query.eq("client_id", user.id);
+      query = query.eq("client_id", user.id);
     }
 
     const { data, error } = await query;
     if (error) {
       console.error("[GET /api/bookings] Error:", error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "Unable to complete this request. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, bookings: data || [] });
@@ -109,6 +109,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { user } = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ error: "Sign in before requesting a booking" }, { status: 401 });
 
     const {
       client_id,
@@ -136,12 +137,12 @@ export async function POST(request: Request) {
     } = body;
 
     const isTransport = service_type === "Transport" || !!transport_service || !!pickup_location;
-    const effectiveCustomerName = customer_name?.trim();
-    const effectiveCustomerPhone = customer_phone?.trim();
+    const effectiveCustomerName = typeof customer_name === "string" ? customer_name.trim() : "";
+    const effectiveCustomerPhone = typeof customer_phone === "string" ? customer_phone.trim() : "";
     const effectiveServiceType = service_type || transport_service || "Transport";
-    const effectiveEventDate = event_date || travel_date || null;
-    const effectiveEventTime = event_time || pickup_time || null;
-    const effectiveGuestCount = guest_count || passenger_count || null;
+    const effectiveEventDate = (isTransport ? travel_date || event_date : event_date) || null;
+    const effectiveEventTime = (isTransport ? pickup_time || event_time : event_time) || null;
+    const effectiveGuestCount = isTransport ? (passenger_count ?? guest_count ?? null) : (guest_count ?? null);
     const effectiveProviderId = provider_id || "faab-cab";
     const effectiveProviderName = provider_name || (effectiveProviderId === "faab-cab" ? "FaabCab" : "Provider");
 
@@ -153,7 +154,7 @@ export async function POST(request: Request) {
     const targetServiceKey = service_id || transport_service;
     const sanitizedServiceId = isValidUuid(service_id)
       ? service_id
-      : (FAABCAB_SERVICE_MAP[targetServiceKey] || FAABCAB_SERVICE_MAP["inter-city"]);
+      : (effectiveProviderId === "faab-cab" ? FAABCAB_SERVICE_MAP[targetServiceKey] || null : null);
 
     if (client_id && (!user || client_id !== user.id)) {
       return NextResponse.json({ success: false, error: "The signed-in user does not match this booking" }, { status: 403 });
@@ -176,14 +177,55 @@ export async function POST(request: Request) {
 
     const supabase = getSupabaseClient();
 
+    if (!validBookingDate(effectiveEventDate) || !/^[+\d ()-]{10,20}$/.test(effectiveCustomerPhone) ||
+        !/^\d{10,15}$/.test(effectiveCustomerPhone.replace(/\D/g, "")) || effectiveCustomerName.length > 150 ||
+        [city, pickup_location, drop_location].some((value) => value != null && (typeof value !== "string" || value.length > 500)) ||
+        [message, special_request].some((value) => value != null && (typeof value !== "string" || value.length > 2000)) ||
+        (effectiveGuestCount != null && (!Number.isInteger(Number(effectiveGuestCount)) || Number(effectiveGuestCount) < 1 || Number(effectiveGuestCount) > 10000)) ||
+        (effectiveEventTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(effectiveEventTime)) ||
+        (isTransport && (typeof pickup_location !== "string" || typeof drop_location !== "string" || !pickup_location.trim() || !drop_location.trim() || pickup_location.trim() === drop_location.trim()))) {
+      return NextResponse.json({ error: "Check the date, time, phone, guest count and pickup/drop locations" }, { status: 400 });
+    }
+    if (service_id && !sanitizedServiceId) return NextResponse.json({ error: "Choose a valid service" }, { status: 400 });
+    if (!sanitizedProviderUuid) return NextResponse.json({ error: "Choose a registered provider" }, { status: 400 });
+    const { data: targetProvider, error: eligibilityError } = await supabase.from("providers")
+      .select("id,business_name,registration_status,is_verified,is_bookable").eq("id", sanitizedProviderUuid).maybeSingle();
+    if (eligibilityError) throw eligibilityError;
+    if (!isEligibleProvider(targetProvider)) return NextResponse.json({ error: "This provider is not accepting bookings" }, { status: 409 });
+    if (sanitizedServiceId) {
+      const { data: service, error: serviceError } = await supabase.from("services")
+        .select("id,provider_id,is_available").eq("id", sanitizedServiceId).maybeSingle();
+      if (serviceError) throw serviceError;
+      if (!service || service.provider_id !== sanitizedProviderUuid || service.is_available !== true) {
+        return NextResponse.json({ error: "Selected service is unavailable" }, { status: 409 });
+      }
+    }
+
+    const requestDetails = {
+      customer_name: effectiveCustomerName,
+      customer_phone: effectiveCustomerPhone,
+      customer_email: user.email || null,
+      guest_count: effectiveGuestCount == null ? null : Number(effectiveGuestCount),
+      city: city || "Jamui, Bihar",
+      message: isTransport ? (special_request || message || null) : (message || null),
+    };
+    const responseForExisting = (saved: Record<string, any>) => {
+      const changed = Object.entries(requestDetails).some(([field, value]) => {
+        const stored = field === "guest_count" && saved[field] != null ? Number(saved[field]) : (saved[field] ?? null);
+        return stored !== value;
+      });
+      if (changed) return NextResponse.json({ success: false, error: "An active request exists for this service and time with different details. Review or cancel it before submitting a replacement." }, { status: 409 });
+      return NextResponse.json({ success: true, message: "Booking already exists for this request", booking: saved, is_existing: true });
+    };
+
+    const requestKey = createHash("sha256").update(JSON.stringify([user.id, sanitizedProviderUuid, sanitizedServiceId, effectiveServiceType, effectiveEventDate, effectiveEventTime, pickup_location || "", drop_location || ""])).digest("hex");
+
     // Idempotency check: prevent duplicate booking creation
     // Check for existing booking with same customer, service, and date in non-terminal state
     let existingBookingQuery = supabase
       .from("bookings")
       .select("*")
-      .eq("customer_phone", effectiveCustomerPhone)
-      .eq("service_type", effectiveServiceType)
-      .eq("travel_date", travel_date || effectiveEventDate)
+      .eq("request_key", requestKey)
       .in("status", ["pending", "confirmed"])
       .order("created_at", { ascending: false })
       .limit(1);
@@ -192,47 +234,33 @@ export async function POST(request: Request) {
       : existingBookingQuery.is("client_id", null);
     const { data: existingBooking } = await existingBookingQuery.maybeSingle();
 
-    if (existingBooking) {
-      console.log("[POST /api/bookings] Returning existing booking to prevent duplicate:", existingBooking.id);
-      return NextResponse.json(
-        {
-          success: true,
-          message: "Booking already exists for this request",
-          booking: existingBooking,
-          is_existing: true,
-        },
-        { status: 200 }
-      );
-    }
+    if (existingBooking) return responseForExisting(existingBooking);
 
     // Booking payload: structured columns preserved, message strictly for special requests
     const bookingPayload: Record<string, any> = {
-      client_id: user?.id || null,
-      provider_id: effectiveProviderId,
+      request_key: requestKey,
+      client_id: user.id,
+      provider_id: targetProvider!.id === FAABCAB_PROVIDER_UUID ? "faab-cab" : targetProvider!.id,
       provider_uuid: sanitizedProviderUuid,
       service_id: sanitizedServiceId,
       service_type: effectiveServiceType,
-      provider_name: effectiveProviderName,
-      customer_name: effectiveCustomerName,
-      customer_phone: effectiveCustomerPhone,
-      customer_email: customer_email?.trim() || null,
-      city: city || "Jamui, Bihar",
+      provider_name: targetProvider!.business_name,
+      ...requestDetails,
       status: "pending",
-      message: isTransport ? (special_request || message || null) : (message || null),
     };
 
     if (isTransport) {
       bookingPayload.pickup_location = pickup_location || null;
       bookingPayload.drop_location = drop_location || null;
       bookingPayload.transport_service = transport_service || effectiveServiceType;
-      bookingPayload.travel_date = travel_date || effectiveEventDate;
-      bookingPayload.pickup_time = pickup_time || effectiveEventTime;
-      bookingPayload.passenger_count = passenger_count ? Number(passenger_count) : (effectiveGuestCount ? Number(effectiveGuestCount) : null);
+      bookingPayload.travel_date = effectiveEventDate;
+      bookingPayload.pickup_time = effectiveEventTime;
+      bookingPayload.passenger_count = effectiveGuestCount == null ? null : Number(effectiveGuestCount);
 
       // Synced fields for fallback table views
-      bookingPayload.event_date = travel_date || effectiveEventDate;
-      bookingPayload.event_time = pickup_time || effectiveEventTime;
-      bookingPayload.guest_count = passenger_count ? Number(passenger_count) : effectiveGuestCount;
+      bookingPayload.event_date = effectiveEventDate;
+      bookingPayload.event_time = effectiveEventTime;
+      bookingPayload.guest_count = effectiveGuestCount == null ? null : Number(effectiveGuestCount);
 
       // Attempt server-side coordinate pre-resolution for pickup & drop
       if (pickup_location && drop_location) {
@@ -255,7 +283,7 @@ export async function POST(request: Request) {
     } else {
       bookingPayload.event_date = effectiveEventDate;
       bookingPayload.event_time = effectiveEventTime;
-      bookingPayload.guest_count = effectiveGuestCount;
+      bookingPayload.guest_count = requestDetails.guest_count;
     }
 
     let booking: any = null;
@@ -267,7 +295,7 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    if (firstInsert.error && (bookingPayload.pickup_lat !== undefined || bookingPayload.drop_lat !== undefined)) {
+    if (firstInsert.error?.code === "PGRST204" && (bookingPayload.pickup_lat !== undefined || bookingPayload.drop_lat !== undefined)) {
       // If error caused by unmigrated DB columns, strip coordinates and retry insert safely
       delete bookingPayload.pickup_lat;
       delete bookingPayload.pickup_lng;
@@ -286,10 +314,16 @@ export async function POST(request: Request) {
       insertError = firstInsert.error;
     }
 
+    if (insertError?.code === "23505") {
+      const { data: duplicate, error } = await supabase.from("bookings").select("*")
+        .eq("client_id", user.id).eq("request_key", bookingPayload.request_key)
+        .in("status", ["pending", "confirmed"]).maybeSingle();
+      if (!error && duplicate) return responseForExisting(duplicate);
+    }
     if (insertError) {
       console.error("[POST /api/bookings] Insert error:", insertError);
       return NextResponse.json(
-        { success: false, error: insertError.message },
+        { success: false, error: "Unable to save booking" },
         { status: 500 }
       );
     }
@@ -344,11 +378,11 @@ export async function POST(request: Request) {
         try {
           await sendNewBookingEmailToProvider({
             providerEmail,
-            providerName: effectiveProviderName,
+            providerName: bookingPayload.provider_name,
             bookingId: booking.id,
             customerName: effectiveCustomerName,
             customerPhone: effectiveCustomerPhone,
-            customerEmail: customer_email || null,
+            customerEmail: bookingPayload.customer_email,
             service: effectiveServiceType,
             date: bookingPayload.event_date || "Not specified",
             time: bookingPayload.event_time || null,
@@ -357,7 +391,7 @@ export async function POST(request: Request) {
             passengers: bookingPayload.passenger_count,
             specialRequest: bookingPayload.message,
           });
-          console.log("[POST /api/bookings] Email sent to provider:", providerEmail);
+
         } catch (emailErr) {
           console.error("[POST /api/bookings] Failed to send email:", emailErr);
         }
@@ -397,7 +431,7 @@ export async function PATCH(request: Request) {
 
     const targetStatus = status || (action === "cancel" ? "cancelled" : null);
 
-    if (!id || !["pending", "confirmed", "rejected", "cancelled", "completed"].includes(targetStatus)) {
+    if (!id || !["confirmed", "rejected", "cancelled", "completed"].includes(targetStatus)) {
       return NextResponse.json(
         { success: false, error: "Invalid booking ID or status" },
         { status: 400 }
@@ -422,18 +456,16 @@ export async function PATCH(request: Request) {
 
     const providerAction = ["confirmed", "rejected", "completed"].includes(targetStatus);
     if (providerAction) {
-      const { data: myProviders, error: providerError } = await supabase
-        .from("providers")
-        .select("id")
-        .eq("user_id", user.id);
+      let providerQuery = supabase.from("providers").select("id").eq("user_id", user.id);
+      if (targetStatus !== "completed") {
+        providerQuery = providerQuery.eq("registration_status", "approved").eq("is_verified", true).eq("is_bookable", true);
+      }
+      const { data: myProviders, error: providerError } = await providerQuery;
       if (providerError) throw providerError;
 
       const ownedProviderIds = (myProviders || []).map((provider) => provider.id);
-      const isFaabCabBooking = existingBooking.provider_id === "faab-cab" || existingBooking.provider_uuid === FAABCAB_PROVIDER_UUID;
-      const isAuthorizedProvider =
-        (existingBooking.provider_uuid && ownedProviderIds.includes(existingBooking.provider_uuid)) ||
-        (isFaabCabBooking && (ownedProviderIds.includes(FAABCAB_PROVIDER_UUID) || ownedProviderIds.length > 0)) ||
-        ownedProviderIds.length > 0;
+      const isAuthorizedProvider = providerOwnsBooking(ownedProviderIds, existingBooking) ||
+        (!existingBooking.provider_uuid && existingBooking.provider_id === "faab-cab" && ownedProviderIds.includes(FAABCAB_PROVIDER_UUID));
 
       if (!isAuthorizedProvider) {
         return NextResponse.json({ success: false, error: "Not authorized to update this booking" }, { status: 403 });
@@ -450,6 +482,9 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: "Not authorized to cancel this booking" }, { status: 403 });
     }
 
+    if (!validBookingTransition(existingBooking.status, targetStatus, providerAction ? "provider" : "client")) {
+      return NextResponse.json({ error: "Invalid booking status transition" }, { status: 409 });
+    }
     const updates: Record<string, any> = {
       status: targetStatus,
     };
@@ -461,7 +496,7 @@ export async function PATCH(request: Request) {
 
     // ── Rejection ──
     if (targetStatus === "rejected") {
-      if (!rejection_reason || !rejection_reason.trim()) {
+      if (typeof rejection_reason !== "string" || !rejection_reason.trim() || rejection_reason.length > 2000) {
         return NextResponse.json(
           { success: false, error: "Rejection reason is required" },
           { status: 400 }
@@ -492,13 +527,14 @@ export async function PATCH(request: Request) {
       .from("bookings")
       .update(updates)
       .eq("id", id)
+      .eq("status", existingBooking.status)
       .select()
       .maybeSingle();
 
     if (updateErr) {
       console.error("[PATCH /api/bookings] Update error:", updateErr);
       return NextResponse.json(
-        { success: false, error: updateErr.message },
+        { success: false, error: "Unable to update booking" },
         { status: 500 }
       );
     }

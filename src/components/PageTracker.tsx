@@ -50,7 +50,7 @@ export function PageTracker() {
   const { user } = useAuth();
 
   // Track when the user entered the current page
-  const entryTime = useRef<number>(Date.now());
+  const entryTime = useRef<number>(0);
 
   useEffect(() => {
     // Reset timer on path change
@@ -73,7 +73,6 @@ export function PageTracker() {
         page_title,
         referrer,
         device_type,
-        user_phone: user?.email ?? null,
       }),
     }).catch((err) =>
       // Silently swallow errors — analytics should never break the app

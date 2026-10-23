@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Container } from "@/components/Container";
 import { useAuth } from "@/context/AuthContext";
-import { isAllowedAdminEmail } from "@/lib/admin";
 import { ComboPack, COMBO_CATEGORIES, COMBO_CATEGORY_METADATA } from "@/lib/combo";
 
 export default function AdminComboPacksPage() {
@@ -32,14 +31,40 @@ export default function AdminComboPacksPage() {
   const [newDiscount, setNewDiscount] = useState("500");
   const [newImageUrl, setNewImageUrl] = useState("/partners/events/usha_nand/usha_nand_1.png");
   const [newItems, setNewItems] = useState([
-    { service_type: "Transport", quantity: 1, is_required: true },
-    { service_type: "Hotel Stay", quantity: 1, is_required: true },
+    { service_type: "Transport", quantity: 1, is_required: true, provider_id: "", service_id: "" },
+    { service_type: "Hotel Stay", quantity: 1, is_required: true, provider_id: "", service_id: "" },
   ]);
 
-  const isAdmin = !!user?.email && isAllowedAdminEmail(user.email);
+  const [availableProviders, setAvailableProviders] = useState<{id: string; business_name: string}[]>([]);
+  const [serviceOptions, setServiceOptions] = useState<Record<string, {id: string; service_name: string}[]>>({});
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isCreateModalOpen) return;
+    const controller = new AbortController();
+    void fetch("/api/providers?limit=100", { signal: controller.signal }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to load eligible providers");
+      setAvailableProviders(data.providers || []);
+    }).catch((err) => { if (!controller.signal.aborted) setAssignmentError(err.message); });
+    return () => controller.abort();
+  }, [isCreateModalOpen]);
+
+  const selectProvider = async (index: number, providerId: string) => {
+    setNewItems((items) => items.map((item, i) => i === index ? { ...item, provider_id: providerId, service_id: "" } : item));
+    setAssignmentError(null);
+    if (!providerId || serviceOptions[providerId]) return;
+    try {
+      const res = await fetch(`/api/services?provider_id=${encodeURIComponent(providerId)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to load services");
+      setServiceOptions((options) => ({ ...options, [providerId]: data.services || [] }));
+    } catch (err) { setAssignmentError(err instanceof Error ? err.message : "Unable to load services"); }
+  };
+
+  const isAdmin = !!user; // The API authorizes each request using the verified session.
 
   const loadData = useCallback(async () => {
-    if (!user?.email || !isAllowedAdminEmail(user.email)) return;
+    if (!user) return;
     try {
       setLoadingData(true);
       setError(null);
@@ -52,6 +77,7 @@ export default function AdminComboPacksPage() {
       // 1. Fetch all combo packs (including inactive)
       const packsRes = await fetch("/api/admin/combo-packs", { headers });
       const packsData = await packsRes.json();
+      if (!packsRes.ok) throw new Error(packsData.error || "Unable to load packages");
       if (packsData.success && Array.isArray(packsData.comboPacks)) {
         setComboPacks(packsData.comboPacks);
       }
@@ -59,6 +85,7 @@ export default function AdminComboPacksPage() {
       // 2. Fetch all combo bookings
       const bookingsRes = await fetch("/api/admin/combo-bookings", { headers });
       const bookingsData = await bookingsRes.json();
+      if (!bookingsRes.ok) throw new Error(bookingsData.error || "Unable to load bookings");
       if (bookingsData.success && Array.isArray(bookingsData.bookings)) {
         setComboBookings(bookingsData.bookings);
         setBookingSummary(bookingsData.summary);
@@ -133,8 +160,11 @@ export default function AdminComboPacksPage() {
 
   const handleCreatePackage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.email) return;
-
+    if (!user?.email || actionInProgress === "create") return;
+    if (!newItems.length || newItems.some((item) => !item.provider_id || !item.service_id || !item.service_type.trim())) {
+      setAssignmentError("Assign an eligible provider and an available service to every component.");
+      return;
+    }
     setActionInProgress("create");
     try {
       const payload = {
@@ -173,7 +203,7 @@ export default function AdminComboPacksPage() {
     }
   };
 
-  if (loading || !user || !isAdmin) {
+  if (loading || !user || !isAdmin || loadingData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#05030f] text-white">
         <div className="flex flex-col items-center gap-3">
@@ -183,6 +213,21 @@ export default function AdminComboPacksPage() {
           </span>
         </div>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-[#05030f] py-12 text-white">
+        <Container>
+          <h1 className="text-2xl font-bold">Package administration unavailable</h1>
+          <p role="alert" className="mt-4 text-red-300">{error}</p>
+          <div className="mt-6 flex gap-4">
+            <button type="button" onClick={() => void loadData()} className="rounded-xl border border-white/20 px-4 py-2">Retry</button>
+            <Link href="/" className="rounded-xl border border-white/20 px-4 py-2">Return home</Link>
+          </div>
+        </Container>
+      </main>
     );
   }
 
@@ -543,6 +588,33 @@ export default function AdminComboPacksPage() {
                     />
                   </div>
                 </div>
+
+                <fieldset className="space-y-3">
+                  <legend className="text-sm font-bold">Included services</legend>
+                  <p className="text-xs text-zinc-400">Choose existing providers and services. Packages are saved as inactive drafts; activate after reviewing the assignments. Each component includes one service.</p>
+                  {assignmentError && <p role="alert" className="text-sm text-red-300">{assignmentError}</p>}
+                  {newItems.map((item, index) => (
+                    <div key={index} className="grid gap-2 rounded-xl border border-white/10 p-3">
+                      <label className="text-xs">Component name
+                        <input required value={item.service_type} maxLength={100} onChange={(e) => setNewItems((items) => items.map((it, i) => i === index ? {...it, service_type: e.target.value} : it))} className="mt-1 w-full rounded-lg bg-[#160e2e] p-2" />
+                      </label>
+                      <label className="text-xs">Provider
+                        <select required value={item.provider_id} onChange={(e) => void selectProvider(index, e.target.value)} className="mt-1 w-full rounded-lg bg-[#160e2e] p-2">
+                          <option value="">Choose an approved provider</option>
+                          {availableProviders.map((provider) => <option key={provider.id} value={provider.id}>{provider.business_name}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs">Available service
+                        <select required value={item.service_id} disabled={!item.provider_id} onChange={(e) => setNewItems((items) => items.map((it, i) => i === index ? {...it, service_id: e.target.value} : it))} className="mt-1 w-full rounded-lg bg-[#160e2e] p-2">
+                          <option value="">Choose an available service</option>
+                          {(serviceOptions[item.provider_id] || []).map((service) => <option key={service.id} value={service.id}>{service.service_name}</option>)}
+                        </select>
+                      </label>
+                      <button type="button" onClick={() => setNewItems((items) => items.filter((_, i) => i !== index))} className="text-left text-xs text-red-300">Remove component</button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setNewItems((items) => [...items, {service_type: "", quantity: 1, is_required: true, provider_id: "", service_id: ""}])} className="text-sm text-cyan-300">Add component</button>
+                </fieldset>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
                   <button
