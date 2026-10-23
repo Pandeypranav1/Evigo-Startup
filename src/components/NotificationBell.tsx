@@ -34,6 +34,9 @@ export function NotificationBell({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const readStateRef = useRef(new Map<string, boolean>());
+  const initializedRef = useRef(false);
+  const onNewBookingRef = useRef(onNewBooking);
+  useEffect(() => { onNewBookingRef.current = onNewBooking; }, [onNewBooking]);
   const [panelPosition, setPanelPosition] = useState<{ top: number; right: number } | null>(null);
 
   const fetchNotifications = useCallback(async () => {
@@ -43,6 +46,11 @@ export function NotificationBell({
       const data = await res.json();
       if (res.ok && data.success) {
         const nextNotifications = (data.notifications || []) as NotificationItem[];
+        if (initializedRef.current) {
+          const missed = nextNotifications.filter((item) => item.type === "booking_new" && !readStateRef.current.has(item.id));
+          if (missed.length) onNewBookingRef.current?.(missed[0]);
+        }
+        initializedRef.current = true;
         readStateRef.current = new Map(nextNotifications.map((notification) => [notification.id, notification.is_read]));
         setNotifications(nextNotifications);
         setUnreadCount(nextNotifications.filter((notification) => !notification.is_read).length);
@@ -55,6 +63,8 @@ export function NotificationBell({
   useEffect(() => {
     if (!userId) return;
     let active = true;
+    initializedRef.current = false;
+    readStateRef.current.clear();
     const supabase = createClient();
     const channelName = `notifications-${userId}`;
 
@@ -66,7 +76,8 @@ export function NotificationBell({
         return;
       }
 
-      supabase.realtime.setAuth(session.access_token);
+      await supabase.realtime.setAuth(session.access_token);
+      if (!active) return;
       const channel = supabase
         .channel(channelName)
         .on(
@@ -78,7 +89,7 @@ export function NotificationBell({
             readStateRef.current.set(notification.id, notification.is_read);
             setNotifications((previous) => [notification, ...previous.filter((item) => item.id !== notification.id)].slice(0, 50));
             if (!notification.is_read) setUnreadCount((count) => count + 1);
-            if (notification.type === "booking_new") onNewBooking?.(notification);
+            if (notification.type === "booking_new") onNewBookingRef.current?.(notification);
           }
         )
         .on(
@@ -125,7 +136,7 @@ export function NotificationBell({
       window.clearInterval(interval);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [fetchNotifications, onNewBooking, userId]);
+  }, [fetchNotifications, userId]);
 
   const updatePanelPosition = useCallback(() => {
     const bounds = buttonRef.current?.getBoundingClientRect();

@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedUser } from "@/lib/server";
 import { createAdminClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
+    const { user } = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const userId = formData.get("user_id") as string | null;
@@ -16,7 +19,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!file) {
+    if (!(file instanceof File)) {
       return NextResponse.json(
         { success: false, error: "Image file is required" },
         { status: 400 }
@@ -24,28 +27,20 @@ export async function POST(request: Request) {
     }
 
     // Validate mime type
-    if (!file.type.startsWith("image/")) {
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
-        { success: false, error: "File must be an image (PNG, JPG, WEBP, etc.)" },
+        { success: false, error: "Choose a PNG, JPEG or WebP image up to 5 MB" },
         { status: 400 }
       );
     }
 
-    // Determine extension
-    let extension = "png";
-    const nameParts = file.name.split(".");
-    if (nameParts.length > 1) {
-      extension = nameParts.pop()?.toLowerCase() || "png";
-    } else if (file.type.includes("jpeg")) {
-      extension = "jpg";
-    } else if (file.type.includes("webp")) {
-      extension = "webp";
-    }
+    const extension = file.type === "image/jpeg" ? "jpg" : file.type === "image/webp" ? "webp" : "png";
 
     const targetStoragePath = `${userId}/avatar.${extension}`;
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    if (userId !== user.id) return NextResponse.json({ success: false, error: "Not authorized" }, { status: 403 });
     const supabase = createAdminClient();
 
     // 1. Upload to Supabase Storage bucket 'avatars'
@@ -59,7 +54,7 @@ export async function POST(request: Request) {
     if (uploadError) {
       console.error("[Avatar Upload] Storage error:", uploadError);
       return NextResponse.json(
-        { success: false, error: uploadError.message },
+        { success: false, error: "Unable to upload image" },
         { status: 500 }
       );
     }
@@ -82,7 +77,7 @@ export async function POST(request: Request) {
     if (profileError) {
       console.error("[Avatar Upload] Profile update error:", profileError);
       return NextResponse.json(
-        { success: false, error: profileError.message },
+        { success: false, error: "Unable to update avatar" },
         { status: 500 }
       );
     }
@@ -103,6 +98,8 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const { user } = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("user_id");
 
@@ -113,6 +110,7 @@ export async function DELETE(request: Request) {
       );
     }
 
+    if (userId !== user.id) return NextResponse.json({ success: false, error: "Not authorized" }, { status: 403 });
     const supabase = createAdminClient();
 
     // Remove possible extensions from storage
@@ -123,7 +121,8 @@ export async function DELETE(request: Request) {
       `${userId}/avatar.webp`,
     ];
 
-    await supabase.storage.from("avatars").remove(possibleFiles);
+    const { error: removalError } = await supabase.storage.from("avatars").remove(possibleFiles);
+    if (removalError) throw removalError;
 
     // Set profiles.avatar_url to null
     const { data: updatedProfile, error: profileError } = await supabase
@@ -136,7 +135,7 @@ export async function DELETE(request: Request) {
     if (profileError) {
       console.error("[Avatar Remove] Profile error:", profileError);
       return NextResponse.json(
-        { success: false, error: profileError.message },
+        { success: false, error: "Unable to update avatar" },
         { status: 500 }
       );
     }

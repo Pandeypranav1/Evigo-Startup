@@ -227,8 +227,8 @@ export default function ClientDashboard() {
     }
   }, [loading, role, router, user]);
 
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
+    if (!await signOut()) { window.alert("Sign out failed. Please try again."); return; }
     router.replace("/");
   };
 
@@ -517,7 +517,7 @@ export default function ClientDashboard() {
                 <div className="space-y-4">
                   {comboBookings.map((cb) => {
                     const status = (cb.status || "pending").toLowerCase();
-                    const isCancelable = ["pending", "partially_confirmed", "confirmed"].includes(status);
+                    const isCancelable = ["pending", "partially_confirmed", "confirmed", "action_required"].includes(status);
 
                     return (
                       <article
@@ -588,7 +588,7 @@ export default function ClientDashboard() {
                                         className="flex items-center justify-between rounded-xl border border-zinc-100 bg-zinc-50/80 p-2.5 text-xs"
                                       >
                                         <div>
-                                          <div className="font-bold text-zinc-900">{item.service_type}</div>
+                                          <div className="font-bold text-zinc-900">{item.service_type}{item.quantity > 1 ? ` × ${item.quantity}` : ""}</div>
                                           <div className="text-[11px] text-zinc-500">{item.provider_name || "Provider"}</div>
                                         </div>
                                         <span

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 type PaymentCheckoutProps = {
@@ -34,6 +34,7 @@ type PaymentStatus =
   | "idle"
   | "initiating"
   | "processing"
+  | "pending"
   | "success"
   | "failed";
 
@@ -52,6 +53,7 @@ export default function PaymentCheckout({
   amount,
 }: PaymentCheckoutProps) {
   const router = useRouter();
+  const initiatingRef = useRef(false);
 
   const [status, setStatus] =
     useState<PaymentStatus>("idle");
@@ -69,12 +71,14 @@ export default function PaymentCheckout({
   }, [isOpen]);
 
   const initiatePayment = async () => {
+    if (initiatingRef.current) return;
     if (!bookingId && !comboBookingId) {
       setError("Invalid booking");
       setStatus("failed");
       return;
     }
 
+    initiatingRef.current = true;
     setStatus("initiating");
     setError(null);
 
@@ -167,6 +171,8 @@ export default function PaymentCheckout({
       );
 
       setStatus("failed");
+    } finally {
+      initiatingRef.current = false;
     }
   };
 
@@ -762,6 +768,10 @@ export default function PaymentCheckout({
       const data =
         await response.json();
 
+      if (data.pending) {
+        setStatus("pending");
+        return;
+      }
       if (
         !response.ok ||
         !data.success
@@ -797,7 +807,7 @@ export default function PaymentCheckout({
         "Payment verification failed"
       );
 
-      setStatus("failed");
+      setStatus("pending");
     }
   };
 
@@ -875,6 +885,13 @@ export default function PaymentCheckout({
             SUCCESS
         ====================================================== */}
 
+        {status === "pending" && (
+          <div className="flex flex-col gap-4 py-8 text-center">
+            <h3 className="text-lg font-bold">Payment awaiting confirmation</h3>
+            <p className="text-sm text-zinc-600">We are waiting for final payment confirmation. Check your booking for updates. If your bank has charged you, please do not pay again.</p>
+            <button type="button" onClick={onClose} className="rounded-xl border p-3">Back to booking</button>
+          </div>
+        )}
         {status === "success" && (
           <div className="flex flex-col items-center gap-4 py-8">
             <div className="text-5xl">

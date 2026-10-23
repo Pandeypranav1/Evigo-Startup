@@ -1,3 +1,4 @@
+import { getAuthenticatedUser } from "@/lib/server";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 
@@ -14,35 +15,40 @@ export async function GET(request: Request) {
     let providerIds: string[] = [];
 
     if (userId) {
+      const { user } = await getAuthenticatedUser();
+      if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      if (userId !== user.id) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
       // Find all providers owned by this user
-      const { data: myProviders } = await supabase
+      const { data: myProviders, error: ownershipError } = await supabase
         .from("providers")
         .select("id")
         .eq("user_id", userId);
 
+      if (ownershipError) throw ownershipError;
       if (myProviders && myProviders.length > 0) {
         providerIds = myProviders.map((p) => p.id);
       }
     }
 
-    if (providerId && !providerIds.includes(providerId)) {
-      providerIds.push(providerId);
+    if (providerId && !userId) {
+      const { data: provider, error } = await supabase.from("providers").select("id")
+        .eq("id", providerId).eq("registration_status", "approved").eq("is_verified", true).eq("is_bookable", true).maybeSingle();
+      if (error) throw error;
+      if (provider) providerIds.push(provider.id);
     }
+    if (providerIds.length === 0) return NextResponse.json({ success: true, services: [] });
 
-    if (providerIds.length === 0) {
-      // Fallback: FaabCab
-      providerIds = ["6105241d-1d38-4274-b912-eea67f4c32b0"];
-    }
-
-    const { data: services, error } = await supabase
+    let servicesQuery = supabase
       .from("services")
       .select("*")
       .in("provider_id", providerIds)
       .order("created_at", { ascending: true });
+    if (!userId) servicesQuery = servicesQuery.eq("is_available", true);
+    const { data: services, error } = await servicesQuery;
 
     if (error) {
       console.error("[GET /api/services] Error:", error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "Unable to complete this request. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({

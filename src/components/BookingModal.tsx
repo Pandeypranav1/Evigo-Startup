@@ -1,10 +1,10 @@
 "use client";
+import Link from "next/link";
 
 import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Modal } from "@/components/Modal";
 import type { DemoProvider } from "@/lib/demoStore";
-import { saveDemoBooking, getDemoUser } from "@/lib/demoStore";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
@@ -19,6 +19,8 @@ export function BookingModal({
 }) {
   const { user, role } = useAuth();
   const router = useRouter();
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
@@ -29,35 +31,40 @@ export function BookingModal({
   const canBook = !!user && role === "client";
   const title = provider ? `Book ${provider.businessName}` : "Book";
 
-  const submit = () => {
+  const submit = async () => {
+    if (submitting) return;
     setError(null);
     if (!provider) return;
     if (!user || role !== "client") {
       router.push("/login/client");
       return;
     }
-    if (!eventDate || !location) {
-      setError("Please fill event date and location.");
+    if (!eventDate || !location || !customerName.trim() || !customerPhone.trim()) {
+      setError("Enter your name, phone, event date and location.");
       return;
     }
     setSubmitting(true);
-    setTimeout(() => {
-      const u = getDemoUser();
-      saveDemoBooking({
-        providerId: provider.id,
-        providerOwnerUid: provider.ownerUid,
-        clientUid: u?.uid ?? user.id,
-        clientPhone: user.email,
-        eventDate,
-        location,
-        notes,
+    try {
+      const response = await fetch("/api/bookings", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider_id: provider.id, provider_uuid: provider.id,
+          provider_name: provider.businessName, service_type: provider.category,
+          event_date: eventDate, customer_name: customerName.trim(), customer_phone: customerPhone.trim(),
+          customer_email: user.email, city: location.trim(), message: notes.trim(), client_id: user.id }),
       });
-      setSubmitting(false);
+      const data = await response.json();
+      if (!response.ok || !data.success || !data.booking?.id) throw new Error(data.error || "Unable to save booking request");
       setDone(true);
-    }, 700);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to save booking request");
+    } finally { setSubmitting(false); }
+
   };
 
   const handleClose = () => {
+    if (submitting) return;
+    setCustomerName("");
+    setCustomerPhone("");
     setEventDate("");
     setLocation("");
     setNotes("");
@@ -81,12 +88,18 @@ export function BookingModal({
         </div>
       ) : (
         <div className="space-y-4">
+          <label className="block text-sm">Your name
+            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={150} autoComplete="name" className="mt-1 w-full rounded-lg border p-2" />
+          </label>
+          <label className="block text-sm">Phone number
+            <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} type="tel" maxLength={20} autoComplete="tel" className="mt-1 w-full rounded-lg border p-2" />
+          </label>
           {!canBook && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               Please login as a client to book.{" "}
-              <a href="/login/client" className="underline font-bold">
+              <Link href="/login/client" className="underline font-bold">
                 Login →
-              </a>
+              </Link>
             </div>
           )}
 

@@ -17,7 +17,7 @@ export interface NearbyHotel {
   user_ratings_total?: number;
   distance_km?: number;
   photo_url?: string;
-  street_view_url: string;
+  street_view_url?: string;
   maps_url: string;
 }
 
@@ -38,10 +38,7 @@ export async function GET(req: NextRequest) {
       {
         error: "disabled",
         message:
-          "Google-powered nearby search is disabled. " +
-          "The app is using Evigo's zero-cost verified partner search instead. " +
-          "To re-enable: set NEARBY_HOTELS_GOOGLE_DISABLED=false in route.ts and " +
-          "add a billing-enabled GOOGLE_MAPS_API_KEY to .env.local.",
+          "Nearby hotel search is currently unavailable. Contact Evigo for help; live room availability is not provided.",
       },
       { status: 503 },
     );
@@ -58,7 +55,7 @@ export async function GET(req: NextRequest) {
   const lng = parseFloat(searchParams.get("lng") ?? "NaN");
   const radiusM = Math.min(15000, Math.max(1000, parseInt(searchParams.get("radius") ?? "8000", 10)));
 
-  if (isNaN(lat) || isNaN(lng)) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || !Number.isFinite(radiusM)) {
     return NextResponse.json({ error: "Invalid lat/lng" }, { status: 400 });
   }
 
@@ -74,18 +71,13 @@ export async function GET(req: NextRequest) {
     const data = await res.json();
 
     if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-      return NextResponse.json({ error: data.status, message: data.error_message }, { status: 502 });
+      return NextResponse.json({ error: "Hotel search provider is unavailable" }, { status: 502 });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results: NearbyHotel[] = (data.results ?? []).slice(0, 12).map((place: any) => {
-      const placeLat: number = place.geometry?.location?.lat ?? lat;
-      const placeLng: number = place.geometry?.location?.lng ?? lng;
-      const photoRef: string | undefined = place.photos?.[0]?.photo_reference;
-      const photo_url = photoRef
-        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${API_KEY}`
-        : undefined;
-
+    const results: NearbyHotel[] = (data.results ?? []).filter((place: any) => Number.isFinite(place.geometry?.location?.lat) && Number.isFinite(place.geometry?.location?.lng)).slice(0, 12).map((place: any) => {
+      const placeLat: number = place.geometry.location.lat;
+      const placeLng: number = place.geometry.location.lng;
       return {
         place_id: place.place_id,
         name: place.name,
@@ -93,8 +85,6 @@ export async function GET(req: NextRequest) {
         rating: place.rating,
         user_ratings_total: place.user_ratings_total,
         distance_km: Math.round(haversineKm(lat, lng, placeLat, placeLng) * 10) / 10,
-        photo_url,
-        street_view_url: `https://www.google.com/maps/embed/v1/streetview?key=${API_KEY}&location=${placeLat},${placeLng}&heading=235&pitch=10&fov=90`,
         maps_url: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
       };
     });

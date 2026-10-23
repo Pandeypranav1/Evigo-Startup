@@ -49,7 +49,7 @@ const KNOWN_LOCATIONS: Record<string, { displayName: string; lat: number; lng: n
  */
 export function normalizeLocationText(rawText: string): string {
   if (!rawText || !rawText.trim()) return "";
-  let clean = rawText.trim().replace(/\s+/g, " ");
+  const clean = rawText.trim().replace(/\s+/g, " ");
 
   const lower = clean.toLowerCase();
   
@@ -59,8 +59,8 @@ export function normalizeLocationText(rawText: string): string {
   }
 
   // Check if state/country is already present
-  const hasIndia = lower.includes("india") || lower.includes("in");
-  const hasState = lower.includes("bihar") || lower.includes("jharkhand") || lower.includes("up") || lower.includes("uttar pradesh");
+  const hasIndia = /\bindia\b/.test(lower);
+  const hasState = /\b(bihar|jharkhand|uttar pradesh)\b/.test(lower);
 
   if (!hasState && !hasIndia) {
     return `${clean}, Bihar, India`;
@@ -115,7 +115,7 @@ export async function resolveTransportLocation(req: LocationRequest): Promise<Re
   // Substring match for Bihar cities
   for (const city of BIHAR_CITIES) {
     const cityNameLower = city.name.toLowerCase();
-    if (cleanLower.includes(cityNameLower)) {
+    if (cleanLower === cityNameLower) {
       return {
         ok: true,
         displayName: `${city.name}, Bihar, India`,

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getAuthenticatedUser } from '@/lib/server';
 
 import { createAdminClient } from '@/lib/supabase';
 
@@ -10,6 +11,8 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
+    const { user } = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     // ============================================================
     // 1. READ REQUEST BODY
     // ============================================================
@@ -161,6 +164,8 @@ export async function POST(request: Request) {
       );
     }
 
+    if (payment.user_id !== user.id) return NextResponse.json({ success: false, error: 'Not authorized' }, { status: 403 });
+
     console.log('[Payment Verify] Internal payment found:', {
       paymentId: payment.id,
       status: payment.status,
@@ -179,32 +184,12 @@ export async function POST(request: Request) {
     // don't return an error.
     // ============================================================
 
-    if (
-      payment.status === 'success' ||
-      payment.status === 'captured'
-    ) {
-      console.log(
-        '[Payment Verify] Payment already processed successfully:',
-        {
-          paymentId: payment.id,
-          status: payment.status,
-        }
-      );
-
-      return NextResponse.json({
-        success: true,
-        already_processed: true,
-        payment_id: payment.id,
-        message: 'Payment already verified successfully',
-      });
-    }
-
     // ============================================================
     // 5. VERIFY ORDER ID
     // ============================================================
 
     if (
-      payment.gateway_order_id &&
+      !payment.gateway_order_id ||
       payment.gateway_order_id !== gatewayOrderId
     ) {
       console.error(
@@ -269,6 +254,8 @@ export async function POST(request: Request) {
         gateway_payment_id: gatewayPaymentId,
         gateway_order_id: gatewayOrderId,
         signature,
+        amount: Number(payment.amount),
+        currency: payment.currency,
       });
 
     console.log('[Payment Verify] Razorpay verification result:', {

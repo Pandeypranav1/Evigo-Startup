@@ -236,7 +236,7 @@ export default function Home() {
                                         className="object-cover transition duration-700 group-hover:scale-105"
                                     />
                                     <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan-900 shadow-sm">
-                                        Hotel &amp; venue
+                                        Unverified listing
                                     </span>
                                 </div>
                                 <div className="p-5">
@@ -252,7 +252,7 @@ export default function Home() {
                                         )}
                                     </div>
                                     {venue.description && <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{venue.description}</p>}
-                                    <span className="mt-4 inline-flex text-sm font-bold text-cyan-800">View property <span className="ml-1" aria-hidden="true">→</span></span>
+                                    <span className="mt-4 inline-flex text-sm font-bold text-cyan-800">View information <span className="ml-1" aria-hidden="true">→</span></span>
                                 </div>
                             </Link>
                         ))}

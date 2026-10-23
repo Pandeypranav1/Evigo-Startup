@@ -1,3 +1,4 @@
+import { consumeRequestLimit, requestIdentity } from "@/lib/request-limit";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 import { headers } from "next/headers";
@@ -23,12 +24,14 @@ export async function POST(request: Request) {
       user_phone = null,
     } = body;
 
-    if (!session_id || !page_path) {
+    if (typeof session_id !== "string" || session_id.length > 100 || typeof page_path !== "string" || !page_path.startsWith("/") || page_path.length > 300) {
       return NextResponse.json(
         { error: "session_id and page_path are required" },
         { status: 400 }
       );
     }
+
+    if (!await consumeRequestLimit("analytics", requestIdentity(request), 120, 3600)) return NextResponse.json({ error: "Rate limit reached" }, { status: 429 });
 
     // Extract IP and User-Agent from request headers
     const headersList = await headers();
@@ -42,13 +45,9 @@ export async function POST(request: Request) {
 
     const { error } = await supabase.from("page_visits").insert({
       session_id,
-      page_path,
-      page_title,
-      referrer,
-      ip_address: ip,
-      user_agent,
-      device_type,
-      user_phone,
+      page_path: page_path.split("?")[0],
+      page_title: typeof page_title === "string" ? page_title.slice(0, 200) : null,
+      device_type: ["mobile", "tablet", "desktop"].includes(device_type) ? device_type : null,
     });
 
     if (error) {

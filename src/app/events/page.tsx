@@ -20,7 +20,7 @@ const CATEGORY_ICON: Record<string, string> = {
 export const metadata = {
     title: "Events",
     description:
-        "Plan your event with trusted services, venues and local partners across Bihar.",
+        "Explore event services and venue information across Bihar.",
 };
 
 export default function EventsPage() {
@@ -35,8 +35,8 @@ export default function EventsPage() {
                         Make room for a celebration worth remembering.
                     </h1>
                     <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-600">
-                        Plan your event with trusted services, venues and local partners.
-                        Explore providers and book directly through Evigo.
+                        Explore event providers and venue information.
+                        Send a request to an available provider; confirmation requires provider acceptance.
                     </p>
                 </Container>
             </section>
@@ -103,11 +103,11 @@ export default function EventsPage() {
                         <div>
                             <p className="text-sm font-bold text-emerald-800">02 / VENUES</p>
                             <h2 className="mt-2 text-2xl font-black text-zinc-950 sm:text-3xl">
-                                Trusted hotels &amp; venues
+                                Hotel &amp; venue information
                             </h2>
                             <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600">
-                                Jamui&apos;s verified hotel partners, with their existing
-                                services and booking options.
+                                These listings are unverified. Confirm business details directly;
+                                live availability and hotel reservations are not provided.
                             </p>
                         </div>
                         <Link
@@ -134,7 +134,7 @@ export default function EventsPage() {
                                         className="object-cover transition duration-500 group-hover:scale-105"
                                     />
                                     <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-900 shadow">
-                                        Verified partner
+                                        Unverified listing
                                     </span>
                                 </div>
                                 <div className="p-4">
@@ -161,7 +161,7 @@ export default function EventsPage() {
                                         {venue.services.slice(0, 3).join(" · ")}
                                     </p>
                                     <span className="mt-4 inline-flex text-sm font-bold text-emerald-800">
-                                        View hotel &amp; booking options
+                                        View hotel information
                                         <span className="ml-1" aria-hidden="true">→</span>
                                     </span>
                                 </div>
@@ -170,9 +170,9 @@ export default function EventsPage() {
                     </div>
 
                     <div className="mt-10 border-t border-zinc-200 pt-8">
-                        <h3 className="text-xl font-black text-zinc-950">Find hotels near you</h3>
+                        <h3 className="text-xl font-black text-zinc-950">Hotel location search</h3>
                         <p className="mt-2 text-sm text-zinc-600">
-                            Search existing partner recommendations by Bihar city or your current location.
+                            Location search will be available when verified hotel coordinates are published.
                         </p>
                         <div className="mt-5">
                             <NearbyHotelsV2 />

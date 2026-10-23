@@ -6,7 +6,6 @@
 import { createAdminClient } from '@/lib/supabase';
 import { PaymentRouter } from './router';
 import { createGatewayAdapter } from './adapters';
-import { createNotificationServer } from '@/lib/notifications';
 
 import {
   PaymentMethod,
@@ -307,12 +306,7 @@ export class PaymentService {
         })
         .eq('id', payment.id);
 
-      if (paymentUpdateError) {
-        console.error(
-          '[PaymentService] Failed to update payment:',
-          paymentUpdateError
-        );
-      }
+      if (paymentUpdateError) throw new Error('Unable to save payment order. Please try again.');
 
       // ----------------------------------------------------------
       // 10. RETURN CHECKOUT DATA
@@ -675,340 +669,28 @@ export class PaymentService {
     gatewayPaymentId: string,
     gatewayCode: GatewayCode
   ): Promise<void> {
-    const supabase = createAdminClient();
-
-    // ----------------------------------------------------------
-    // GET PAYMENT
-    // ----------------------------------------------------------
-
-    const { data: payment, error: paymentError } =
-      await supabase
-        .from('payments')
-        .select('*')
-        .eq('id', paymentId)
-        .single();
-
-    if (paymentError || !payment) {
-      console.error(
-        '[PaymentService] Payment not found:',
-        {
-          paymentId,
-          error: paymentError,
-        }
-      );
-
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // UPDATE PAYMENT
-    // ----------------------------------------------------------
-
-    const { error: paymentUpdateError } =
-      await supabase
-        .from('payments')
-        .update({
-          status: 'success',
-          gateway_payment_id:
-            gatewayPaymentId,
-          paid_at:
-            new Date().toISOString(),
-        })
-        .eq('id', paymentId);
-
-    if (paymentUpdateError) {
-      console.error(
-        '[PaymentService] Failed to update successful payment:',
-        paymentUpdateError
-      );
-    }
-
-    // ----------------------------------------------------------
-    // UPDATE PAYMENT ATTEMPT
-    //
-    // `captured` is the valid live DB status.
-    // ----------------------------------------------------------
-
-    const { data: capturedAttempt, error: attemptError } =
-      await supabase
-        .from('payment_attempts')
-        .update({
-          status: 'captured',
-          gateway_payment_id:
-            gatewayPaymentId,
-          completed_at:
-            new Date().toISOString(),
-        })
-        .eq('payment_id', paymentId)
-        .in('status', [
-          'pending',
-          'authorized',
-        ])
-        .order('attempt_number', {
-          ascending: false,
-        })
-        .limit(1)
-        .select()
-        .maybeSingle();
-
-    if (attemptError) {
-      console.error(
-        '[PaymentService] Failed to update successful payment attempt:',
-        attemptError
-      );
-    }
-
-    // ----------------------------------------------------------
-    // UPDATE GATEWAY USAGE
-    // ----------------------------------------------------------
-
-    const { data: gateway } =
-      await supabase
-        .from('payment_gateways')
-        .select('id')
-        .eq('code', gatewayCode)
-        .maybeSingle();
-
-    if (gateway) {
-      const { error: usageError } =
-        await supabase.rpc(
-          'update_gateway_usage',
-          {
-            p_gateway_id: gateway.id,
-            p_amount: Number(payment.amount),
-            p_success: true,
-          }
-        );
-
-      if (usageError) {
-        console.error(
-          '[PaymentService] Failed to update gateway usage:',
-          usageError
-        );
-      }
-    }
-
-    // ----------------------------------------------------------
-    // UPDATE BOOKING STATUS
-    // ----------------------------------------------------------
-
-    if (payment.booking_id) {
-      const { error: bookingError } =
-        await supabase
-          .from('bookings')
-          .update({
-            payment_status: 'paid',
-          })
-          .eq('id', payment.booking_id);
-
-      if (bookingError) {
-        console.error(
-          '[PaymentService] Failed to update booking payment status:',
-          bookingError
-        );
-      }
-    }
-
-    // ----------------------------------------------------------
-    // UPDATE COMBO BOOKING STATUS
-    // ----------------------------------------------------------
-
-    if (payment.combo_booking_id) {
-      const { error: comboError } =
-        await supabase
-          .from('combo_bookings')
-          .update({
-            payment_status: 'paid',
-          })
-          .eq(
-            'id',
-            payment.combo_booking_id
-          );
-
-      if (comboError) {
-        console.error(
-          '[PaymentService] Failed to update combo booking payment status:',
-          comboError
-        );
-      }
-    }
-
-    // ----------------------------------------------------------
-    // SEND SUCCESS NOTIFICATION
-    // ----------------------------------------------------------
-
-    try {
-      await createNotificationServer({
-        userId: payment.user_id,
-
-        bookingId:
-          payment.booking_id ||
-          payment.combo_booking_id ||
-          undefined,
-
-        title: 'Payment Successful! 💳',
-
-        message:
-          `Your payment of ₹${payment.amount} was successful. ` +
-          `${payment.booking_id
-            ? 'Booking confirmed.'
-            : 'Combo booking confirmed.'
-          }`,
-
-        type: 'booking_confirmed',
-      });
-    } catch (notifyErr) {
-      console.warn(
-        '[PaymentService] Failed to send payment success notification:',
-        notifyErr
-      );
-    }
+    const { error } = await createAdminClient().rpc('finalize_payment', {
+      p_payment_id: paymentId,
+      p_gateway_payment_id: gatewayPaymentId,
+      p_gateway: gatewayCode,
+      p_success: true,
+    });
+    if (error) throw new Error(`Payment settlement failed: ${error.message}`);
   }
 
-  // ============================================================
-  // PROCESS FAILED PAYMENT
-  // ============================================================
-
-  static async processFailedPayment(
-    paymentId: string,
-    reason: string
-  ): Promise<void> {
+  static async processFailedPayment(paymentId: string, reason: string): Promise<void> {
     const supabase = createAdminClient();
-
-    // ----------------------------------------------------------
-    // GET PAYMENT
-    // ----------------------------------------------------------
-
-    const { data: payment, error: paymentError } =
-      await supabase
-        .from('payments')
-        .select('*')
-        .eq('id', paymentId)
-        .single();
-
-    if (paymentError || !payment) {
-      console.error(
-        '[PaymentService] Payment not found:',
-        {
-          paymentId,
-          error: paymentError,
-        }
-      );
-
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // UPDATE PAYMENT
-    // ----------------------------------------------------------
-
-    await supabase
-      .from('payments')
-      .update({
-        status: 'failed',
-        failure_reason: reason,
-        failed_at:
-          new Date().toISOString(),
-      })
-      .eq('id', paymentId);
-
-    // ----------------------------------------------------------
-    // UPDATE PAYMENT ATTEMPT
-    //
-    // Valid statuses that can be failed:
-    // created / pending / authorized
-    // ----------------------------------------------------------
-
-    const { error: attemptError } =
-      await supabase
-        .from('payment_attempts')
-        .update({
-          status: 'failed',
-          error_message: reason,
-          completed_at:
-            new Date().toISOString(),
-        })
-        .eq('payment_id', paymentId)
-        .in('status', [
-          'created',
-          'pending',
-          'authorized',
-        ])
-        .order('attempt_number', {
-          ascending: false,
-        })
-        .limit(1);
-
-    if (attemptError) {
-      console.error(
-        '[PaymentService] Failed to update failed payment attempt:',
-        attemptError
-      );
-    }
-
-    // ----------------------------------------------------------
-    // UPDATE GATEWAY USAGE
-    // ----------------------------------------------------------
-
-    if (payment.selected_gateway) {
-      const { data: gateway } =
-        await supabase
-          .from('payment_gateways')
-          .select('id')
-          .eq(
-            'code',
-            payment.selected_gateway
-          )
-          .maybeSingle();
-
-      if (gateway) {
-        const { error: usageError } =
-          await supabase.rpc(
-            'update_gateway_usage',
-            {
-              p_gateway_id: gateway.id,
-              p_amount: Number(payment.amount),
-              p_success: false,
-            }
-          );
-
-        if (usageError) {
-          console.error(
-            '[PaymentService] Failed to update failed gateway usage:',
-            usageError
-          );
-        }
-      }
-    }
-
-    // ----------------------------------------------------------
-    // SEND FAILURE NOTIFICATION
-    // ----------------------------------------------------------
-
-    try {
-      await createNotificationServer({
-        userId: payment.user_id,
-
-        bookingId:
-          payment.booking_id ||
-          payment.combo_booking_id ||
-          undefined,
-
-        title: 'Payment Failed ❌',
-
-        message:
-          `Your payment of ₹${payment.amount} failed. ` +
-          `Reason: ${reason}. ` +
-          `Please try again or use a different payment method.`,
-
-        type: 'booking_rejected',
-      });
-    } catch (notifyErr) {
-      console.warn(
-        '[PaymentService] Failed to send payment failed notification:',
-        notifyErr
-      );
-    }
+    const { data: payment, error: lookupError } = await supabase.from('payments')
+      .select('gateway,selected_gateway').eq('id', paymentId).single();
+    if (lookupError || !payment) throw new Error('Payment not found');
+    const { error } = await supabase.rpc('finalize_payment', {
+      p_payment_id: paymentId,
+      p_gateway_payment_id: null,
+      p_gateway: payment.gateway || payment.selected_gateway,
+      p_success: false,
+      p_reason: reason,
+    });
+    if (error) throw new Error(`Payment failure update failed: ${error.message}`);
   }
 
   // ============================================================

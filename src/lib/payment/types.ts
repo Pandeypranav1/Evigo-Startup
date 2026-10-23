@@ -61,6 +61,8 @@ export interface PaymentStatusResult {
 }
 
 export interface VerifyPaymentParams {
+  amount?: number;
+  currency?: string;
   gateway_order_id: string;
   gateway_payment_id?: string;
   signature?: string;

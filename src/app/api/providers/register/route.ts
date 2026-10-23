@@ -130,11 +130,14 @@ export async function POST(request: Request) {
         if (imageUrl && !isValidUrl(imageUrl)) {
             return NextResponse.json({ success: false, error: "Image URL must start with http:// or https://." }, { status: 400 });
         }
+        if (ownerName.length > 150 || businessName.length > 200 || city.length > 100 || description.length > 5000 || experienceYears > 100 || startingPrice > 100000000) {
+            return NextResponse.json({ error: "Registration fields exceed allowed limits" }, { status: 400 });
+        }
         if (!description) {
             return NextResponse.json({ success: false, error: "Description is required." }, { status: 400 });
         }
 
-        const sanitizedPhone = phone.replace(/\s+/g, "");
+        const sanitizedPhone = "+91" + phone.replace(/\D/g, "").slice(-10);
 
         const [existingByEmail, existingByPhone] = await Promise.all([
             supabase
@@ -197,7 +200,7 @@ export async function POST(request: Request) {
 
         if (error) {
             console.error("[POST /api/providers/register] insert error:", error);
-            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+            return NextResponse.json({ success: false, error: error.code === "23505" ? "Registration already exists" : "Unable to save registration" }, { status: error.code === "23505" ? 409 : 500 });
         }
 
         return NextResponse.json(
@@ -211,7 +214,7 @@ export async function POST(request: Request) {
     } catch (error: any) {
         console.error("[POST /api/providers/register] unexpected error:", error);
         return NextResponse.json(
-            { success: false, error: error?.message || "Something went wrong while submitting the provider registration." },
+            { success: false, error: "Something went wrong while submitting the provider registration." },
             { status: 500 }
         );
     }

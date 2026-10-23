@@ -285,7 +285,7 @@ export default function ProviderDashboard() {
         void loadData(user.id, false);
       }
     },
-    [loadData, user?.id]
+    [loadData, user]
   );
 
   // ============================================================
@@ -324,8 +324,8 @@ export default function ProviderDashboard() {
   // SIGN OUT
   // ============================================================
 
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
+    if (!await signOut()) { window.alert("Sign out failed. Please try again."); return; }
     router.replace("/");
   };
 
@@ -1432,7 +1432,7 @@ export default function ProviderDashboard() {
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
                           <span>🎁</span>{" "}
-                          {ci.service_type}
+                          {ci.service_type}{ci.quantity > 1 ? ` × ${ci.quantity}` : ""}
                         </span>
 
                         <span

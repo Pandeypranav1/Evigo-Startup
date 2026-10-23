@@ -274,7 +274,7 @@ function HotelDetailCard({ venue }: { venue: EventVenue }) {
         {/* Rating badge */}
         <div className="absolute top-4 right-4">
           <span className="px-3 py-1.5 rounded-full text-[13px] font-black text-zinc-900 bg-amber-400/95">
-            ★ {venue.googleRating?.toFixed(1)} · {venue.reviewCount} reviews
+            Ratings not verified
           </span>
         </div>
 
@@ -287,12 +287,13 @@ function HotelDetailCard({ venue }: { venue: EventVenue }) {
               backdropFilter: "blur(6px)",
             }}
           >
-            ✓ Verified Partner
+            Details awaiting verification
           </span>
         </div>
 
         {/* Carousel arrows */}
         <button
+          aria-label={`Previous photo of ${venue.name}`}
           onClick={() =>
             setImgIdx(
               (imgIdx - 1 + venue.images.length) % venue.images.length
@@ -304,6 +305,7 @@ function HotelDetailCard({ venue }: { venue: EventVenue }) {
         </button>
 
         <button
+          aria-label={`Next photo of ${venue.name}`}
           onClick={() =>
             setImgIdx((imgIdx + 1) % venue.images.length)
           }
@@ -317,7 +319,8 @@ function HotelDetailCard({ venue }: { venue: EventVenue }) {
           {venue.images.map((_, i) => (
             <button
               key={i}
-              onClick={() => setImgIdx(i)}
+              aria-label={`Show photo ${i + 1} of ${venue.name}`}
+                onClick={() => setImgIdx(i)}
               className="rounded-full transition-all duration-200 cursor-pointer border-none"
               style={{
                 width: i === imgIdx ? 24 : 8,
@@ -342,7 +345,8 @@ function HotelDetailCard({ venue }: { venue: EventVenue }) {
         {venue.images.map((img, i) => (
           <button
             key={i}
-            onClick={() => setImgIdx(i)}
+            aria-label={`Show photo ${i + 1} of ${venue.name}`}
+                onClick={() => setImgIdx(i)}
             className="flex-shrink-0 rounded-lg overflow-hidden cursor-pointer border-2 transition-all duration-200"
             style={{
               width: 72,
@@ -430,9 +434,10 @@ function HotelDetailCard({ venue }: { venue: EventVenue }) {
         {/* Right: Choose a Service */}
         <div>
           <div className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-3">
-            Choose a Service to Book
+            Services awaiting partner verification
           </div>
 
+          <p className="mb-3 text-sm text-zinc-600">This informational listing does not accept reservations. <Link className="underline" href="/explore">View active providers</Link>.</p>
           <div className="flex flex-col gap-2.5">
             {venue.services.map((svc) => (
               <button
@@ -501,7 +506,7 @@ export default function HotelsPage() {
                 border: "1px solid rgba(6,182,212,0.25)",
               }}
             >
-              🏨 {EVENT_VENUES.length} Verified Hotel Partners · Jamui, Bihar
+              🏨 {EVENT_VENUES.length} Hotel information · Unverified · Jamui, Bihar
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-[44px] font-black leading-tight">
@@ -513,13 +518,13 @@ export default function HotelsPage() {
                   WebkitTextFillColor: "transparent",
                 }}
               >
-                Our Hotel Partners
+                Hotel & Venue Information
               </span>
             </h1>
 
             <p className="text-sm sm:text-[15px] text-zinc-500 mt-3 max-w-lg mx-auto leading-relaxed">
-              Browse, compare, and book verified hotels across Jamui. Choose
-              your hotel, then pick a service to start your booking.
+              Hotel details are awaiting partner verification and do not accept reservations.
+              Browse approved providers on the <Link href="/explore" className="underline">Explore page</Link> to send a booking request.
             </p>
 
             {/* Quick-jump anchor pills */}

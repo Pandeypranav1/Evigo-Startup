@@ -7,7 +7,7 @@ import { Container } from "@/components/Container";
 import { SERVICE_CATEGORIES, CATEGORY_IMAGE, EVENT_VENUES } from "@/lib/constants";
 import type { ServiceCategory, EventVenue } from "@/lib/constants";
 import type { DemoProvider } from "@/lib/demoStore";
-import { getDemoUser, saveDemoBooking } from "@/lib/demoStore";
+import { BookingModal } from "@/components/BookingModal";
 import { getProviderStartingPrice } from "@/lib/provider-search";
 
 /* ─── Price bands ─── */
@@ -27,89 +27,6 @@ function parseLowestPrice(range?: string): number {
   return match ? parseInt(match[1]) : 1500;
 }
 
-/* ─── Booking Modal (for DemoProviders) ─── */
-function BookingModal({
-  provider,
-  onClose,
-}: {
-  provider: DemoProvider | null;
-  onClose: () => void;
-}) {
-  const [eventDate, setEventDate] = useState("");
-  const [location, setLocation] = useState("");
-  const [notes, setNotes] = useState("");
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (!provider) { setEventDate(""); setLocation(""); setNotes(""); setDone(false); }
-  }, [provider]);
-
-  if (!provider) return null;
-
-  const confirm = () => {
-    const u = getDemoUser();
-    saveDemoBooking({
-      providerId: provider.id,
-      providerOwnerUid: provider.ownerUid,
-      clientUid: u?.uid ?? "guest",
-      clientPhone: u?.phone ?? "",
-      eventDate,
-      location,
-      notes,
-    });
-    setDone(true);
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 w-full max-w-[460px]" style={{ boxShadow: "0 32px 80px rgba(0,0,0,0.25)" }}>
-        {done ? (
-          <div className="text-center py-2">
-            <div className="text-5xl">✅</div>
-            <div className="text-lg font-black text-zinc-900 mt-3">Booking Requested!</div>
-            <div className="text-sm text-zinc-500 mt-1.5">
-              Your request has been sent to <strong>{provider.businessName}</strong>.
-            </div>
-            <button onClick={onClose} className="mt-5 w-full py-3 rounded-xl text-sm font-bold text-white cursor-pointer" style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", border: "none" }}>
-              Close
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="text-base sm:text-lg font-black text-zinc-900">Book {provider.businessName}</div>
-            <div className="text-xs sm:text-[13px] text-zinc-500 mt-0.5 mb-5">{provider.category} · {provider.city}</div>
-            <div className="flex flex-col gap-3.5">
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Event Date</span>
-                <input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Venue / Location</span>
-                <input value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Wedding Hall, Patna" className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Notes (optional)</span>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Any special requirements..." className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none resize-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
-              </label>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-zinc-200 bg-white text-sm font-bold text-zinc-600 cursor-pointer">Cancel</button>
-              <button onClick={confirm} disabled={!eventDate || !location} className="flex-1 py-2.5 rounded-xl border-none text-sm font-bold text-white cursor-pointer" style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", opacity: (!eventDate || !location) ? 0.45 : 1 }}>
-                Confirm Booking
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Provider Card (DemoProvider) ─── */
 function ProviderCard({ provider, onBook }: { provider: DemoProvider; onBook: (p: DemoProvider) => void }) {
   const [imgError, setImgError] = useState(false);
   const imgSrc = provider.imageUrl && !imgError ? provider.imageUrl : CATEGORY_IMAGE[provider.category as keyof typeof CATEGORY_IMAGE] ?? "/evigo-hero.png";
@@ -178,12 +95,12 @@ function HotelVenueCard({ venue }: { venue: EventVenue }) {
         {/* Category badge */}
         <div className="absolute top-3 left-3 flex gap-1.5">
           <span className="bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-[11px] font-bold text-zinc-600">🏨 Restaurant</span>
-          <span className="bg-cyan-500/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-[11px] font-bold text-white">✓ Verified</span>
+          <span className="bg-cyan-500/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-[11px] font-bold text-white">Details unverified</span>
         </div>
         {/* Rating */}
         <div className="absolute top-3 right-3">
           <span className="bg-amber-400/95 rounded-full px-2 py-0.5 text-[11px] font-black text-zinc-900">
-            ★ {venue.googleRating?.toFixed(1)}
+            Unverified listing
           </span>
         </div>
         {/* Image carousel dots */}
@@ -192,6 +109,7 @@ function HotelVenueCard({ venue }: { venue: EventVenue }) {
             {venue.images.map((_, i) => (
               <button
                 key={i}
+                aria-label={`Show photo ${i + 1} of ${venue.name}`}
                 onClick={() => setImgIdx(i)}
                 className="rounded-full transition-all duration-200 cursor-pointer border-none"
                 style={{
@@ -206,10 +124,12 @@ function HotelVenueCard({ venue }: { venue: EventVenue }) {
         {/* Arrow nav */}
         <button
           className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center text-sm cursor-pointer border-none hover:bg-black/60 transition"
+          aria-label={`Previous photo of ${venue.name}`}
           onClick={() => setImgIdx((imgIdx - 1 + venue.images.length) % venue.images.length)}
         >‹</button>
         <button
           className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center text-sm cursor-pointer border-none hover:bg-black/60 transition"
+          aria-label={`Next photo of ${venue.name}`}
           onClick={() => setImgIdx((imgIdx + 1) % venue.images.length)}
         >›</button>
       </div>
@@ -218,7 +138,7 @@ function HotelVenueCard({ venue }: { venue: EventVenue }) {
       <div className="p-4">
         <div className="text-[15px] font-black text-zinc-900">{venue.name}</div>
         <div className="text-xs text-zinc-500 mt-0.5">
-          📍 {venue.location} · {venue.reviewCount} reviews
+          📍 {venue.location} · Details unverified
         </div>
         {venue.description && (
           <div className="mt-2 text-xs text-zinc-500 leading-relaxed line-clamp-2">{venue.description}</div>
@@ -345,6 +265,7 @@ export default function ExplorePage() {
     const band = PRICE_BANDS[priceBand];
     return EVENT_VENUES.filter(h => {
       if (locationFilter && !h.location.toLowerCase().includes(locationFilter.toLowerCase()) && !h.city.toLowerCase().includes(locationFilter.toLowerCase())) return false;
+      if (priceBand !== 0 && !h.priceRange) return false;
       const lowestPrice = parseLowestPrice(h.priceRange);
       // Hotels show in "Any Price" and "Under ₹5,000" bands (typical room rates)
       if (band.min > 0 && lowestPrice < band.min) return false;
@@ -473,7 +394,7 @@ export default function ExplorePage() {
         {totalResults === 0 && !providersError && <EmptyState category={category} />}
       </Container>
 
-      <BookingModal provider={selectedProvider} onClose={() => setSelectedProvider(null)} />
+      <BookingModal open={!!selectedProvider} provider={selectedProvider} onClose={() => setSelectedProvider(null)} />
     </main>
   );
 }

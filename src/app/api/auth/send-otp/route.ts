@@ -1,8 +1,6 @@
+import { consumeRequestLimit, requestIdentity } from "@/lib/request-limit";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
-// Rate limit: 1 OTP per email per 30 seconds in memory
-const rateLimit = new Map<string, number>();
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -29,14 +27,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // In-Memory Rate Limit Check (1 request per 30 seconds per email)
-    const lastSent = rateLimit.get(normalizedEmail);
-    if (lastSent && Date.now() - lastSent < 30000) {
-      const waitSec = Math.ceil((30000 - (Date.now() - lastSent)) / 1000);
-      return NextResponse.json(
-        { error: `Please wait ${waitSec} seconds before requesting another OTP.` },
-        { status: 429 }
-      );
+    if (!await consumeRequestLimit("otp-email", normalizedEmail, 1, 30) ||
+        !await consumeRequestLimit("otp-ip", requestIdentity(request), 10, 600)) {
+      return NextResponse.json({ error: "Please wait before requesting another code." }, { status: 429 });
     }
 
     // Server-side Supabase client with public anon key for Auth endpoints
@@ -86,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     // Record rate limit timestamp only on successful dispatch
-    rateLimit.set(normalizedEmail, Date.now());
+
 
     return NextResponse.json({
       success: true,

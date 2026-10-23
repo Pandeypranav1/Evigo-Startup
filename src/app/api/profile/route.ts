@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedUser } from "@/lib/server";
 import { createAdminClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
+    const { user } = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("user_id");
+    const userId = searchParams.get("user_id") || user.id;
 
     if (!userId) {
       return NextResponse.json(
@@ -15,6 +18,7 @@ export async function GET(request: Request) {
       );
     }
 
+    if (userId !== user.id) return NextResponse.json({ success: false, error: "Not authorized" }, { status: 403 });
     const supabase = createAdminClient();
     const { data: profile, error } = await supabase
       .from("profiles")
@@ -25,16 +29,20 @@ export async function GET(request: Request) {
     if (error) {
       console.error("[GET /api/profile] Error:", error);
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: "Unable to load profile" },
         { status: 500 }
       );
     }
 
     if (!profile) {
-      return NextResponse.json(
-        { success: false, error: "Profile not found" },
-        { status: 404 }
-      );
+      // Recovery never infers a privileged role from user-editable metadata.
+      const { error: recoveryError } = await supabase.from("profiles").upsert({
+        id: user.id, email: user.email || null, role: "client",
+      }, { onConflict: "id", ignoreDuplicates: true });
+      if (recoveryError) throw recoveryError;
+      const { data: recovered, error: reloadError } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      if (reloadError) throw reloadError;
+      return NextResponse.json({ success: true, profile: recovered });
     }
 
     return NextResponse.json({
@@ -52,6 +60,8 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const { user } = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     const body = await request.json();
     const { user_id, full_name, phone, city, experience_years, description, service_areas } = body;
 
@@ -62,6 +72,13 @@ export async function PATCH(request: Request) {
       );
     }
 
+    if (user_id !== user.id) return NextResponse.json({ success: false, error: "Not authorized" }, { status: 403 });
+    if ([full_name, phone, city].some((value) => value !== undefined && (typeof value !== "string" || value.length > 2000)) ||
+        (description !== undefined && (typeof description !== "string" || description.length > 5000)) ||
+        (experience_years !== undefined && (!Number.isInteger(experience_years) || experience_years < 0 || experience_years > 100)) ||
+        (service_areas !== undefined && (!Array.isArray(service_areas) || service_areas.length > 20 || service_areas.some((area) => typeof area !== "string" || area.length > 100)))) {
+      return NextResponse.json({ error: "Invalid profile fields" }, { status: 400 });
+    }
     const supabase = createAdminClient();
 
     // Verify profile exists
@@ -94,7 +111,7 @@ export async function PATCH(request: Request) {
     if (updateError) {
       console.error("[PATCH /api/profile] Profile update error:", updateError);
       return NextResponse.json(
-        { success: false, error: updateError.message },
+        { success: false, error: "Unable to update profile" },
         { status: 500 }
       );
     }
@@ -110,12 +127,14 @@ export async function PATCH(request: Request) {
 
     if (Object.keys(providerUpdates).length > 0) {
       try {
-        await supabase
+        const { error: providerError } = await supabase
           .from("providers")
           .update(providerUpdates)
           .eq("user_id", user_id);
+        if (providerError) throw providerError;
       } catch (provErr) {
         console.warn("[PATCH /api/profile] Provider table update warning:", provErr);
+        return NextResponse.json({ success: false, error: "Account saved, but business details could not be updated. Please retry." }, { status: 503 });
       }
     }
 

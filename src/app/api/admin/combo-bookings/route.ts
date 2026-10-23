@@ -1,30 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
-import { isAllowedAdminEmail } from "@/lib/admin";
+import { authorizeAccountAdmin } from "@/lib/account-security";
 
 export const runtime = "nodejs";
 
-function authorizeAdmin(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const email =
-    request.headers.get("x-user-email") ??
-    request.headers.get("x-admin-email") ??
-    searchParams.get("user_email") ??
-    "";
-  const role =
-    request.headers.get("x-user-role") ??
-    request.headers.get("x-role") ??
-    searchParams.get("user_role") ??
-    "";
-
-  if (!email || role === "client" || !isAllowedAdminEmail(email)) {
-    throw new Error("Unauthorized admin access");
-  }
-}
-
 export async function GET(request: Request) {
   try {
-    authorizeAdmin(request);
+    const authorization = await authorizeAccountAdmin();
+    if ("response" in authorization) return authorization.response;
 
     const supabase = createAdminClient();
     const { data: bookings, error } = await supabase
@@ -34,7 +17,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("[GET /api/admin/combo-bookings] Error:", error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "Unable to complete this request. Please try again." }, { status: 500 });
     }
 
     const allBookings = bookings || [];
@@ -58,7 +41,7 @@ export async function GET(request: Request) {
   } catch (err: any) {
     const isAuth = err?.message?.includes("Unauthorized");
     return NextResponse.json(
-      { success: false, error: err?.message || "Admin authorization failed" },
+      { success: false, error: "Unable to complete this request. Please try again." },
       { status: isAuth ? 403 : 500 }
     );
   }

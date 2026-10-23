@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
+  robots: { index: false, follow: false },
   title: "Login",
   description:
     "Sign in to Evigo — access your client dashboard or provider dashboard to manage event bookings across Bihar.",

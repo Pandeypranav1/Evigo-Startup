@@ -36,13 +36,7 @@ export async function GET(request: Request) {
 
     const { data: dbPacks, error } = await query;
 
-    if (error) {
-      console.warn("[GET /api/combo-packs] DB query error:", error);
-      return NextResponse.json({
-        success: true,
-        comboPacks: [],
-      });
-    }
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
@@ -51,9 +45,7 @@ export async function GET(request: Request) {
   } catch (err: any) {
     console.error("[GET /api/combo-packs] Error:", err);
     return NextResponse.json({
-      success: true,
-      comboPacks: [],
-      error: err?.message,
-    });
+      success: false, error: "Packages are temporarily unavailable",
+    }, { status: 503 });
   }
 }

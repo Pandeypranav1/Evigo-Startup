@@ -1,3 +1,4 @@
+import { createAdminClient } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 import { createClient, getAuthenticatedUser } from "@/lib/server";
 import { searchApprovedProviders, toPublicProviderListing } from "@/lib/provider-search";
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: "You can only view your own provider application.", code: "FORBIDDEN" }, { status: 403 });
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await createAdminClient()
         .from("providers")
         .select("*")
         .eq("user_id", user.id)
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
 
       if (error) {
         console.error("[GET /api/providers] Supabase error:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: "Unable to complete this request. Please try again." }, { status: 500 });
       }
 
       return NextResponse.json({

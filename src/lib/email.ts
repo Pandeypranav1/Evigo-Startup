@@ -33,7 +33,8 @@ export async function sendBrevoEmail({
       return { success: false, skipped: true };
     }
 
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || "noreply@evigo.in";
+    const senderEmail = process.env.BREVO_SENDER_EMAIL;
+    if (!senderEmail) return { success: false, skipped: true };
     const senderName = process.env.BREVO_SENDER_NAME || "Evigo Platform";
 
     const payload = {
@@ -53,6 +54,7 @@ export async function sendBrevoEmail({
 
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
+      signal: AbortSignal.timeout(10000),
       headers: {
         "api-key": apiKey,
         "Content-Type": "application/json",
