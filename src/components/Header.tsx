@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -33,13 +32,13 @@ function NavLink({
     <Link
       href={href}
       className={`relative whitespace-nowrap py-2 text-[13px] font-semibold transition-colors duration-200 ${active
-          ? "text-indigo-700"
-          : "text-slate-600 hover:text-indigo-700"
+        ? "text-[#ff8a00]"
+        : "text-slate-200 hover:text-white"
         }`}
     >
       {children}
       <span
-        className={`absolute bottom-0 left-0 h-0.5 rounded-full bg-indigo-600 transition-all ${active ? "w-full" : "w-0"
+        className={`absolute bottom-0 left-0 h-0.5 rounded-full bg-[#ff8a00] transition-all ${active ? "w-full" : "w-0"
           }`}
       />
     </Link>
@@ -51,29 +50,17 @@ function SearchBar() {
     <Link
       href="/explore"
       aria-label="Search destinations and services"
-      className="hidden min-w-[260px] max-w-[380px] flex-1 items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-500 transition hover:border-indigo-300 hover:bg-white 2xl:flex"
+      className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-300/50 hover:bg-white/10 hover:text-white"
     >
       <svg
-        className="h-5 w-5 shrink-0 text-slate-400"
+        className="h-5 w-5"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
       >
         <circle cx="11" cy="11" r="7" strokeWidth="1.8" />
-        <path
-          strokeLinecap="round"
-          strokeWidth="1.8"
-          d="m16 16 4 4"
-        />
+        <path strokeLinecap="round" strokeWidth="1.8" d="m16 16 4 4" />
       </svg>
-
-      <span className="flex-1 truncate">
-        Search destinations, hotels, events...
-      </span>
-
-      <span className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-        Explore
-      </span>
     </Link>
   );
 }
@@ -118,7 +105,7 @@ function AvatarDropdown({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-label="Open profile menu"
-        className="flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 transition hover:border-indigo-300 hover:bg-slate-50"
+        className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 py-1 pl-1 pr-3 transition hover:border-cyan-300/50 hover:bg-white/15"
       >
         {user?.profileImage ? (
           <img
@@ -132,12 +119,12 @@ function AvatarDropdown({
           </span>
         )}
 
-        <span className="hidden max-w-[110px] truncate text-xs font-semibold text-slate-700 sm:block">
+        <span className="hidden max-w-[110px] truncate text-xs font-semibold text-white sm:block">
           {user?.email?.split("@")[0] || "My Account"}
         </span>
 
         <svg
-          className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""
+          className={`h-4 w-4 text-slate-300 transition-transform ${open ? "rotate-180" : ""
             }`}
           viewBox="0 0 24 24"
           fill="none"
@@ -248,27 +235,24 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-[70] w-full border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-xl">
-        <PageContainer className="flex min-h-[68px] items-center gap-4 py-2">
+      <header className="sticky top-0 z-[70] w-full border-b border-white/10 bg-[#192337] shadow-[0_4px_18px_rgba(8,15,30,0.18)]">
+        <PageContainer className="flex min-h-[72px] items-center justify-between gap-4 py-2">
           {/* Evigo brand */}
           <Link
             href="/"
             className="group flex shrink-0 items-center gap-2"
             aria-label="Evigo Home"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-cyan-500 text-xl font-black text-white shadow-md shadow-indigo-200 transition-transform group-hover:scale-105">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-cyan-500 text-xl font-black text-white shadow-md shadow-violet-900/30 transition-transform group-hover:scale-105">
               E
             </span>
-            <span className="text-2xl font-black tracking-tight text-slate-900">
+            <span className="text-2xl font-black tracking-tight text-white">
               Evigo
             </span>
           </Link>
 
-          {/* Search */}
-          <SearchBar />
-
           {/* Desktop navigation */}
-          <nav className="hidden items-center gap-4 xl:flex">
+          <nav className="hidden min-w-0 flex-1 items-center justify-center gap-2 xl:flex 2xl:gap-4">
             <NavLink href="/">Home</NavLink>
             <NavLink href="/combo-packs">Combo Packs</NavLink>
             <NavLink href="/events">Events &amp; Services</NavLink>
@@ -281,18 +265,19 @@ export function Header() {
           </nav>
 
           {/* Desktop actions */}
-          <div className="ml-auto hidden shrink-0 items-center gap-3 xl:flex">
+          <div className="hidden shrink-0 items-center gap-2 xl:flex 2xl:gap-3">
+            <SearchBar />
             {!user ? (
               <>
                 <Link
                   href="/login"
-                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-800 transition hover:border-indigo-300 hover:bg-indigo-50"
+                  className="rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition hover:border-white/30 hover:bg-white/15"
                 >
                   Login
                 </Link>
                 <Link
                   href="/explore"
-                  className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-600"
+                  className="whitespace-nowrap rounded-xl bg-[#ff6b00] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#ed5e00] 2xl:px-5"
                 >
                   Book a Service
                 </Link>
@@ -301,7 +286,7 @@ export function Header() {
               <>
                 <Link
                   href="/explore"
-                  className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-600"
+                  className="whitespace-nowrap rounded-xl bg-[#ff6b00] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#ed5e00] 2xl:px-5"
                 >
                   Book a Service
                 </Link>
@@ -315,47 +300,46 @@ export function Header() {
           </div>
 
           {/* Mobile search and menu */}
-          <Link
-            href="/explore"
-            aria-label="Search services"
-            className="ml-auto rounded-full p-2 text-slate-600 hover:bg-indigo-50 xl:hidden"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+          <div className="ml-auto flex shrink-0 items-center gap-2 xl:hidden">
+            <Link
+              href="/explore"
+              aria-label="Search services"
+              className="grid h-10 w-10 place-items-center rounded-full text-slate-200 transition hover:bg-white/10 hover:text-white"
             >
-              <circle cx="11" cy="11" r="7" strokeWidth="1.8" />
-              <path
-                d="m16 16 4 4"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
-          </Link>
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <circle cx="11" cy="11" r="7" strokeWidth="1.8" />
+                <path
+                  d="m16 16 4 4"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </Link>
 
-          <button
-            type="button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle navigation menu"
-            aria-expanded={menuOpen}
-            aria-controls="evigo-mobile-menu"
-            className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 xl:hidden"
-          >
-            <span
-              className={`h-0.5 w-5 rounded-full bg-current transition ${menuOpen ? "translate-y-2 rotate-45" : ""
-                }`}
-            />
-            <span
-              className={`h-0.5 w-5 rounded-full bg-current transition ${menuOpen ? "opacity-0" : ""
-                }`}
-            />
-            <span
-              className={`h-0.5 w-5 rounded-full bg-current transition ${menuOpen ? "-translate-y-2 -rotate-45" : ""
-                }`}
-            />
-          </button>
+            <button
+              type="button"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Toggle navigation menu"
+              aria-expanded={menuOpen}
+              aria-controls="evigo-mobile-menu"
+              className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 text-white transition hover:bg-white/15"
+            >
+              <span
+                className={`h-0.5 w-5 rounded-full bg-current transition ${menuOpen ? "translate-y-2 rotate-45" : ""}`}
+              />
+              <span
+                className={`h-0.5 w-5 rounded-full bg-current transition ${menuOpen ? "opacity-0" : ""}`}
+              />
+              <span
+                className={`h-0.5 w-5 rounded-full bg-current transition ${menuOpen ? "-translate-y-2 -rotate-45" : ""}`}
+              />
+            </button>
+          </div>
         </PageContainer>
       </header>
 
@@ -363,8 +347,8 @@ export function Header() {
       <div
         onClick={() => setMenuOpen(false)}
         className={`fixed inset-0 z-[75] bg-slate-900/40 backdrop-blur-sm transition-opacity xl:hidden ${menuOpen
-            ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0"
+          ? "pointer-events-auto opacity-100"
+          : "pointer-events-none opacity-0"
           }`}
       />
 
@@ -430,8 +414,8 @@ export function Header() {
                   href={item.href}
                   onClick={() => setMenuOpen(false)}
                   className={`flex items-center justify-between rounded-xl px-4 py-3.5 text-sm font-semibold transition ${active
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "text-slate-700 hover:bg-slate-50"
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-slate-700 hover:bg-slate-50"
                     }`}
                 >
                   {item.label}
@@ -444,8 +428,8 @@ export function Header() {
               <>
                 <Link
                   href={`${role === "provider"
-                      ? "/provider/dashboard"
-                      : "/dashboard"
+                    ? "/provider/dashboard"
+                    : "/dashboard"
                     }#profile`}
                   onClick={() => setMenuOpen(false)}
                   className="block rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -455,8 +439,8 @@ export function Header() {
 
                 <Link
                   href={`${role === "provider"
-                      ? "/provider/dashboard"
-                      : "/dashboard"
+                    ? "/provider/dashboard"
+                    : "/dashboard"
                     }#bookings`}
                   onClick={() => setMenuOpen(false)}
                   className="block rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"

@@ -1,40 +1,53 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Container } from "@/components/Container";
 import { TourismImage, TourismPhotoCredit } from "@/components/TourismImage";
-import { BIHAR_DESTINATIONS, HERO_SLIDER_IMAGES } from "@/lib/constants";
+import { BIHAR_DESTINATIONS } from "@/lib/constants";
+
+const EXPERIENCE_CARDS = [
+    {
+        title: "Heritage & Spiritual Tours",
+        description: "Explore ancient monasteries, historic landmarks and sacred destinations.",
+        href: "/services/tourism?tripType=heritage",
+        icon: "🏛️",
+        tone: "from-violet-100 to-purple-50",
+        accent: "text-violet-700",
+    },
+    {
+        title: "Local Experiences",
+        description: "Discover Bihar's culture, local food, art and traditional communities.",
+        href: "/services/tourism?tripType=culture",
+        icon: "✦",
+        tone: "from-orange-100 to-amber-50",
+        accent: "text-orange-700",
+    },
+    {
+        title: "Stays & Transport",
+        description: "Find comfortable stays and convenient transport for your journey.",
+        href: "/hotels",
+        icon: "⌂",
+        tone: "from-sky-100 to-cyan-50",
+        accent: "text-sky-700",
+    },
+];
+
+const TRUST_ITEMS = [
+    { icon: "✦", title: "Local experiences", text: "Discover Bihar beyond the usual routes." },
+    { icon: "✓", title: "Verified partners", text: "Explore trusted stays, guides and services." },
+    { icon: "⌖", title: "Easy trip planning", text: "Find destinations and plan your visit." },
+];
 
 export default function TravelTourismPage() {
     const router = useRouter();
-    const [currentSlide, setCurrentSlide] = useState(0);
     const [searchData, setSearchData] = useState({
         destination: "",
         tripType: "",
-        date: ""
+        date: "",
     });
     const [searchError, setSearchError] = useState("");
-
-    const [isPaused, setIsPaused] = useState(false);
-
-    useEffect(() => {
-        if (isPaused) return;
-
-        const timeout = setTimeout(() => {
-            setCurrentSlide((prev) => (prev + 1) % HERO_SLIDER_IMAGES.length);
-        }, 4500);
-        return () => clearTimeout(timeout);
-    }, [currentSlide, isPaused]);
-
-    const showPreviousSlide = () => {
-        setCurrentSlide((previous) => (previous - 1 + HERO_SLIDER_IMAGES.length) % HERO_SLIDER_IMAGES.length);
-    };
-
-    const showNextSlide = () => {
-        setCurrentSlide((previous) => (previous + 1) % HERO_SLIDER_IMAGES.length);
-    };
 
     const handleSearch = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -45,7 +58,10 @@ export default function TravelTourismPage() {
         }
 
         const parsedDate = new Date(`${searchData.date}T00:00:00.000Z`);
-        if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== searchData.date) {
+        if (
+            Number.isNaN(parsedDate.getTime()) ||
+            parsedDate.toISOString().slice(0, 10) !== searchData.date
+        ) {
             setSearchError("Please choose a valid travel date.");
             return;
         }
@@ -59,240 +75,330 @@ export default function TravelTourismPage() {
         router.push(`/services/tourism?${params.toString()}`);
     };
 
+    const heroDestinations = BIHAR_DESTINATIONS.slice(0, 4);
+
     return (
-        <main className="flex-1 bg-white">
-            {/* Hero section with the destination carousel */}
-            <section
-                className="relative min-h-[600px] overflow-hidden sm:min-h-[650px] lg:min-h-[700px]"
-                role="region"
-                aria-label="Bihar destination highlights"
-                aria-roledescription="carousel"
-                onMouseEnter={() => setIsPaused(true)}
-                onMouseLeave={() => setIsPaused(false)}
-            >
-                {HERO_SLIDER_IMAGES.map((slide, index) => {
-                    const isActive = index === currentSlide;
-                    const isNearActive = index === currentSlide
-                        || index === (currentSlide + 1) % HERO_SLIDER_IMAGES.length
-                        || index === (currentSlide - 1 + HERO_SLIDER_IMAGES.length) % HERO_SLIDER_IMAGES.length;
+        <main className="flex-1 overflow-hidden bg-[#fcfaff] text-[#17213d]">
+            {/* HERO — fixed collage, no automatic image slider */}
+            <section className="relative overflow-hidden bg-gradient-to-br from-[#f3edff] via-[#fffaff] to-[#fff0e8]">
+                <div className="pointer-events-none absolute -left-40 top-10 h-96 w-96 rounded-full bg-violet-300/30 blur-[100px]" />
+                <div className="pointer-events-none absolute -right-32 top-0 h-96 w-96 rounded-full bg-orange-200/35 blur-[100px]" />
 
-                    return (
-                        <div
-                            key={slide.src}
-                            aria-hidden={!isActive}
-                            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out motion-reduce:transition-none ${
-                                isActive ? "opacity-100" : "pointer-events-none opacity-0"
-                            }`}
-                        >
-                            <TourismImage
-                                src={slide.src}
-                                alt={slide.alt}
-                                attribution={slide.imageAttribution}
-                                loading={isNearActive ? "eager" : "lazy"}
-                                className="object-cover object-center"
-                                sizes="100vw"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-b from-[#061426]/45 via-[#061426]/30 to-[#061426]/75" />
-                        </div>
-                    );
-                })}
+                <Container className="relative grid items-center gap-12 py-14 sm:py-18 lg:min-h-[590px] lg:grid-cols-[0.9fr_1.1fr] lg:gap-10 lg:py-16">
+                    <div className="relative z-10">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-violet-200/80 bg-white/85 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-violet-800 shadow-sm">
+                            <span className="h-2 w-2 rounded-full bg-orange-500" />
+                            Evigo Travel & Tourism
+                        </span>
 
-                {/* Hero Content - Left Aligned */}
-                <div className="relative z-10 flex min-h-[600px] flex-col justify-center px-4 py-12 sm:min-h-[650px] sm:py-16 lg:min-h-[700px]">
-                    <Container className="flex flex-col items-start">
-                        <h1 className="mb-4 text-4xl font-black tracking-tight text-white drop-shadow-2xl sm:mb-5 sm:text-5xl md:text-6xl lg:text-7xl max-w-3xl">
-                            Discover the Real <span className="text-orange-400">Bihar</span>
+                        <h1 className="mt-6 max-w-xl text-4xl font-black leading-[1.08] tracking-tight text-[#17213d] sm:text-5xl lg:text-[3.8rem]">
+                            Explore the
+                            <span className="block bg-gradient-to-r from-violet-700 via-purple-600 to-orange-500 bg-clip-text text-transparent">
+                                Heritage of Bihar
+                            </span>
                         </h1>
-                        <p className="mb-8 max-w-2xl text-base leading-relaxed text-white/95 drop-shadow-lg sm:mb-10 sm:text-lg md:text-xl">
-                            Explore ancient heritage, spiritual destinations, vibrant culture and natural beauty.
+
+                        <p className="mt-5 max-w-xl text-base leading-8 text-slate-600 sm:text-lg">
+                            From timeless heritage and spiritual landmarks to vibrant
+                            local culture, discover the places and experiences that
+                            make Bihar unforgettable.
                         </p>
 
-                        <div className="mb-7 min-h-12 max-w-2xl" aria-live="polite" aria-atomic="true">
-                            <p className="text-sm font-bold text-white sm:text-base">
-                                <span className="mr-2 text-orange-400" aria-hidden="true">●</span>
-                                {HERO_SLIDER_IMAGES[currentSlide].title}
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-white/80 sm:text-sm">
-                                {HERO_SLIDER_IMAGES[currentSlide].subtitle}
-                            </p>
+                        <div className="mt-7 flex flex-wrap gap-3">
+                            <Link
+                                href="/services/tourism"
+                                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-gradient-to-r from-violet-700 to-purple-600 px-6 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-xl"
+                            >
+                                Explore Destinations <span className="ml-2">→</span>
+                            </Link>
+                            <Link
+                                href="#experiences"
+                                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-violet-200 bg-white/90 px-6 text-sm font-bold text-violet-800 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-300"
+                            >
+                                Discover Experiences
+                            </Link>
                         </div>
 
-                        {/* Hero Highlight Cards */}
-                        <div className="mb-8 flex flex-wrap gap-3 sm:gap-4">
-                            <div className="flex items-center gap-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2.5">
-                                <span className="text-xl">🏛️</span>
-                                <span className="text-sm font-semibold text-white">Heritage & Culture</span>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2.5">
-                                <span className="text-xl">🛕</span>
-                                <span className="text-sm font-semibold text-white">Spiritual Journeys</span>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2.5">
-                                <span className="text-xl">🌿</span>
-                                <span className="text-sm font-semibold text-white">Nature Escapes</span>
-                            </div>
+                        <div className="mt-8 flex flex-wrap gap-2.5">
+                            {[
+                                ["🏛️", "Heritage"],
+                                ["🛕", "Spiritual"],
+                                ["🌿", "Nature & Culture"],
+                            ].map(([icon, label]) => (
+                                <span
+                                    key={label}
+                                    className="inline-flex items-center gap-2 rounded-full border border-white bg-white/75 px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm"
+                                >
+                                    <span>{icon}</span>
+                                    {label}
+                                </span>
+                            ))}
                         </div>
+                    </div>
 
-                        {/* Search Panel - White with Orange Button */}
-                        <form
-                            noValidate
-                            onSubmit={handleSearch}
-                            className="w-full max-w-4xl rounded-2xl bg-white p-4 shadow-2xl sm:p-5 md:p-6"
-                        >
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div className="md:col-span-1">
-                                    <label htmlFor="tourism-destination" className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                                        Select Destination
-                                    </label>
-                                    <select
-                                        id="tourism-destination"
-                                        name="destination"
-                                        required
-                                        value={searchData.destination}
-                                        onChange={(e) => {
-                                            setSearchData((current) => ({ ...current, destination: e.target.value }));
-                                            setSearchError("");
-                                        }}
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-200 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                                    >
-                                        <option value="">Choose destination</option>
-                                        {BIHAR_DESTINATIONS.map((dest) => (
-                                            <option key={dest.name} value={dest.district}>
-                                                {dest.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="md:col-span-1">
-                                    <label htmlFor="tourism-trip-type" className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                                        Trip Type
-                                    </label>
-                                    <select
-                                        id="tourism-trip-type"
-                                        name="tripType"
-                                        required
-                                        value={searchData.tripType}
-                                        onChange={(e) => {
-                                            setSearchData((current) => ({ ...current, tripType: e.target.value }));
-                                            setSearchError("");
-                                        }}
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-200 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                                    >
-                                        <option value="">Choose trip type</option>
-                                        <option value="spiritual">Spiritual Circuit</option>
-                                        <option value="heritage">Heritage Trail</option>
-                                        <option value="nature">Nature & Adventure</option>
-                                        <option value="culture">Food & Culture</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-1">
-                                    <label htmlFor="tourism-travel-date" className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                                        Travel Date
-                                    </label>
-                                    <input
-                                        id="tourism-travel-date"
-                                        name="date"
-                                        type="date"
-                                        required
-                                        value={searchData.date}
-                                        onChange={(e) => {
-                                            setSearchData((current) => ({ ...current, date: e.target.value }));
-                                            setSearchError("");
-                                        }}
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-200 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                    {/* Fixed four-image destination collage */}
+                    <div className="relative mx-auto w-full max-w-[650px]">
+                        <div className="absolute -inset-5 rounded-[40px] bg-gradient-to-br from-violet-300/40 to-orange-200/40 blur-2xl" />
+                        <div className="relative grid grid-cols-[1.15fr_0.85fr] gap-3 sm:gap-4">
+                            {heroDestinations[0] && (
+                                <Link
+                                    href={`/services/tourism?district=${encodeURIComponent(heroDestinations[0].district)}`}
+                                    className="group relative min-h-[330px] overflow-hidden rounded-[28px] border-4 border-white shadow-xl sm:min-h-[420px]"
+                                >
+                                    <TourismImage
+                                        src={heroDestinations[0].img}
+                                        alt={heroDestinations[0].alt}
+                                        attribution={heroDestinations[0].imageAttribution}
+                                        objectPosition={heroDestinations[0].objectPosition}
+                                        loading="eager"
+                                        sizes="(max-width: 768px) 60vw, 34vw"
+                                        className="object-cover transition duration-700 group-hover:scale-105"
                                     />
-                                </div>
-                                <div className="md:col-span-1 flex items-end">
-                                    <button
-                                        type="submit"
-                                        className="w-full px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                        </svg>
-                                        Search
-                                    </button>
-                                </div>
-                            </div>
-                            {searchError && (
-                                <p role="alert" className="mt-3 text-sm font-semibold text-red-700">
-                                    {searchError}
-                                </p>
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[#10172c]/75 via-transparent to-transparent" />
+                                    <div className="absolute bottom-5 left-5 right-4 text-white">
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/80">
+                                            Discover Bihar
+                                        </span>
+                                        <h2 className="mt-2 text-2xl font-black sm:text-3xl">
+                                            {heroDestinations[0].name}
+                                        </h2>
+                                        <p className="mt-1 text-xs text-white/85">
+                                            {heroDestinations[0].tag}
+                                        </p>
+                                    </div>
+                                </Link>
                             )}
-                        </form>
-                    </Container>
-                </div>
 
-                <div className="absolute inset-x-0 bottom-3 z-20 flex items-center justify-between px-4 sm:px-6">
-                    <button
-                        type="button"
-                        onClick={showPreviousSlide}
-                        className="grid h-10 w-10 place-items-center rounded-full border border-white/35 bg-[#081629]/60 text-white shadow-lg backdrop-blur-sm transition hover:bg-[#081629]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                        aria-label="Previous destination"
-                    >
-                        <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m15 18-6-6 6-6" />
-                        </svg>
-                    </button>
-                    <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2">
-                        {HERO_SLIDER_IMAGES.map((slide, index) => (
-                            <button
-                                key={slide.src}
-                                type="button"
-                                onClick={() => setCurrentSlide(index)}
-                                className={`h-2.5 rounded-full transition-all ${
-                                    index === currentSlide ? "w-8 bg-white" : "w-2.5 bg-white/55 hover:bg-white/80"
-                                }`}
-                                aria-label={`Go to ${slide.title}`}
-                                aria-pressed={index === currentSlide}
-                            />
-                        ))}
+                            <div className="grid gap-3 sm:gap-4">
+                                {heroDestinations.slice(1, 4).map((destination, index) => (
+                                    <Link
+                                        key={destination.name}
+                                        href={`/services/tourism?district=${encodeURIComponent(destination.district)}`}
+                                        className={`group relative min-h-[102px] overflow-hidden rounded-[22px] border-4 border-white shadow-lg sm:min-h-[128px] ${index === 2 ? "hidden sm:block" : ""
+                                            }`}
+                                    >
+                                        <TourismImage
+                                            src={destination.img}
+                                            alt={destination.alt}
+                                            attribution={destination.imageAttribution}
+                                            objectPosition={destination.objectPosition}
+                                            loading="lazy"
+                                            sizes="(max-width: 768px) 35vw, 22vw"
+                                            className="object-cover transition duration-700 group-hover:scale-110"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                                        <div className="absolute bottom-3 left-3 right-3">
+                                            <p className="text-sm font-black text-white sm:text-base">
+                                                {destination.name}
+                                            </p>
+                                            <p className="mt-0.5 line-clamp-1 text-[10px] text-white/80">
+                                                {destination.tag}
+                                            </p>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="absolute -bottom-5 right-3 rounded-2xl border border-white bg-white/95 px-4 py-3 shadow-xl sm:-right-4">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">
+                                Explore more
+                            </p>
+                            <p className="text-sm font-black text-[#17213d]">
+                                Experience Bihar with Evigo
+                            </p>
+                        </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={showNextSlide}
-                        className="grid h-10 w-10 place-items-center rounded-full border border-white/35 bg-[#081629]/60 text-white shadow-lg backdrop-blur-sm transition hover:bg-[#081629]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                        aria-label="Next destination"
-                    >
-                        <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m9 18 6-6-6-6" />
-                        </svg>
-                    </button>
-                </div>
-                {HERO_SLIDER_IMAGES[currentSlide]?.imageAttribution && (
-                    <div className="absolute right-4 top-4 z-20 max-w-[42%] truncate rounded bg-[#081629]/45 px-2 py-1 text-right text-white/80 sm:right-6">
-                        <TourismPhotoCredit
-                            attribution={HERO_SLIDER_IMAGES[currentSlide].imageAttribution}
-                            className="text-[10px] leading-4 text-white/80"
-                        />
-                    </div>
-                )}
+                </Container>
             </section>
 
-            {/* District destinations */}
-            <section className="py-12 md:py-16 bg-white">
+            {/* FLOATING SEARCH PANEL */}
+            <section className="relative z-10 -mt-1 bg-white pb-10 pt-8 sm:pb-12">
                 <Container>
-                    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+                    <form
+                        noValidate
+                        onSubmit={handleSearch}
+                        className="rounded-[24px] border border-violet-100 bg-white p-5 shadow-[0_18px_55px_rgba(69,36,115,0.10)] sm:p-7"
+                    >
+                        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-violet-700">
+                                    Plan your journey
+                                </p>
+                                <h2 className="mt-1 text-xl font-black text-[#17213d] sm:text-2xl">
+                                    Where would you like to go?
+                                </h2>
+                            </div>
+                            <span className="rounded-full bg-orange-50 px-3 py-1.5 text-[11px] font-bold text-orange-700">
+                                Your Bihar trip starts here
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_1fr_auto]">
+                            <div>
+                                <label
+                                    htmlFor="tourism-destination"
+                                    className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500"
+                                >
+                                    Destination
+                                </label>
+                                <select
+                                    id="tourism-destination"
+                                    name="destination"
+                                    required
+                                    value={searchData.destination}
+                                    onChange={(event) => {
+                                        setSearchData((current) => ({
+                                            ...current,
+                                            destination: event.target.value,
+                                        }));
+                                        setSearchError("");
+                                    }}
+                                    className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100"
+                                >
+                                    <option value="">Choose destination</option>
+                                    {BIHAR_DESTINATIONS.map((destination) => (
+                                        <option key={destination.name} value={destination.district}>
+                                            {destination.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label
+                                    htmlFor="tourism-trip-type"
+                                    className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500"
+                                >
+                                    Experience
+                                </label>
+                                <select
+                                    id="tourism-trip-type"
+                                    name="tripType"
+                                    required
+                                    value={searchData.tripType}
+                                    onChange={(event) => {
+                                        setSearchData((current) => ({
+                                            ...current,
+                                            tripType: event.target.value,
+                                        }));
+                                        setSearchError("");
+                                    }}
+                                    className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100"
+                                >
+                                    <option value="">Choose experience</option>
+                                    <option value="spiritual">Spiritual Circuit</option>
+                                    <option value="heritage">Heritage Trail</option>
+                                    <option value="nature">Nature & Adventure</option>
+                                    <option value="culture">Food & Culture</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label
+                                    htmlFor="tourism-travel-date"
+                                    className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500"
+                                >
+                                    Travel date
+                                </label>
+                                <input
+                                    id="tourism-travel-date"
+                                    name="date"
+                                    type="date"
+                                    required
+                                    value={searchData.date}
+                                    onChange={(event) => {
+                                        setSearchData((current) => ({
+                                            ...current,
+                                            date: event.target.value,
+                                        }));
+                                        setSearchError("");
+                                    }}
+                                    className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100"
+                                />
+                            </div>
+
+                            <div className="flex items-end">
+                                <button
+                                    type="submit"
+                                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-700 to-purple-600 px-7 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-xl md:w-auto"
+                                >
+                                    <svg
+                                        aria-hidden="true"
+                                        className="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <circle cx="11" cy="11" r="7" strokeWidth="2" />
+                                        <path d="m16 16 4 4" strokeWidth="2" strokeLinecap="round" />
+                                    </svg>
+                                    Search
+                                </button>
+                            </div>
+                        </div>
+
+                        {searchError && (
+                            <p role="alert" className="mt-3 text-sm font-semibold text-red-700">
+                                {searchError}
+                            </p>
+                        )}
+                    </form>
+                </Container>
+            </section>
+
+            {/* TRUST STRIP */}
+            <section className="border-y border-violet-100 bg-[#faf7ff] py-9 sm:py-11">
+                <Container>
+                    <div className="grid gap-7 sm:grid-cols-3 sm:gap-5">
+                        {TRUST_ITEMS.map((item) => (
+                            <div key={item.title} className="flex items-center gap-4">
+                                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-100 to-orange-50 text-xl font-black text-violet-700">
+                                    {item.icon}
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-[#17213d]">
+                                        {item.title}
+                                    </h3>
+                                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                                        {item.text}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Container>
+            </section>
+
+            {/* POPULAR DESTINATIONS */}
+            <section className="bg-white py-14 sm:py-20">
+                <Container>
+                    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
-                                Explore Bihar's Top Destinations
+                            <span className="text-xs font-extrabold uppercase tracking-[0.2em] text-violet-700">
+                                Explore the state
+                            </span>
+                            <h2 className="mt-2 text-3xl font-black tracking-tight text-[#17213d] sm:text-4xl">
+                                Popular Destinations
                             </h2>
-                            <p className="text-gray-600 mt-2 text-sm md:text-base">Discover the most popular travel destinations and experiences.</p>
+                            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500 sm:text-base">
+                                Discover the landmarks, culture and experiences that make Bihar special.
+                            </p>
                         </div>
                         <Link
                             href="/services/tourism"
-                            className="text-sm font-bold text-orange-500 hover:text-orange-600 flex items-center gap-2 transition-colors"
+                            className="inline-flex w-fit items-center gap-2 text-sm font-extrabold text-violet-700 transition hover:gap-3"
                         >
-                            View all destinations →
+                            View all destinations <span>→</span>
                         </Link>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                        {BIHAR_DESTINATIONS.map((destination) => (
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                        {BIHAR_DESTINATIONS.slice(0, 4).map((destination, index) => (
                             <div key={destination.name} className="min-w-0">
                                 <Link
                                     href={`/services/tourism?district=${encodeURIComponent(destination.district)}`}
-                                    className="group relative block aspect-[4/5] overflow-hidden rounded-xl bg-slate-900 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                                    className="group relative block aspect-[4/5] overflow-hidden rounded-[24px] bg-slate-900 shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl"
                                 >
                                     <TourismImage
                                         src={destination.img}
@@ -300,14 +406,21 @@ export default function TravelTourismPage() {
                                         attribution={destination.imageAttribution}
                                         objectPosition={destination.objectPosition}
                                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                                        className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                        className="object-cover transition duration-700 group-hover:scale-110"
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                                    <div className="absolute inset-x-0 bottom-0 p-4">
-                                        <h3 className="text-lg font-bold text-white">{destination.name}</h3>
-                                        <p className="mt-1 text-sm text-white/80">{destination.tag}</p>
-                                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-orange-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
-                                            Explore District
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[#10172c]/85 via-[#10172c]/10 to-transparent" />
+                                    <div className="absolute left-4 top-4 rounded-full border border-white/30 bg-black/20 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur">
+                                        0{index + 1} / Bihar
+                                    </div>
+                                    <div className="absolute inset-x-0 bottom-0 p-5">
+                                        <h3 className="text-xl font-black text-white">
+                                            {destination.name}
+                                        </h3>
+                                        <p className="mt-1 text-xs leading-5 text-white/80">
+                                            {destination.tag}
+                                        </p>
+                                        <span className="mt-4 inline-flex items-center gap-2 text-xs font-extrabold text-white">
+                                            Explore destination <span>→</span>
                                         </span>
                                     </div>
                                 </Link>
@@ -320,116 +433,95 @@ export default function TravelTourismPage() {
                 </Container>
             </section>
 
-            {/* Trust Section */}
-            <section className="py-12 md:py-16 bg-slate-50">
+            {/* PLAN YOUR JOURNEY */}
+            <section
+                id="experiences"
+                className="relative overflow-hidden bg-gradient-to-br from-[#f5efff] via-[#fffaff] to-[#fff1e9] py-14 sm:py-20"
+            >
+                <div className="pointer-events-none absolute -right-24 top-0 h-80 w-80 rounded-full bg-violet-200/30 blur-3xl" />
                 <Container>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div className="text-center md:text-left">
-                            <div className="w-16 h-16 rounded-2xl bg-teal-100 flex items-center justify-center mx-auto md:mx-0 mb-4">
-                                <svg className="w-8 h-8 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Local experiences</h3>
-                            <p className="text-sm text-gray-600">Authentic, community-led travel</p>
-                        </div>
-                        <div className="text-center md:text-left">
-                            <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto md:mx-0 mb-4">
-                                <svg className="w-8 h-8 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Verified partners</h3>
-                            <p className="text-sm text-gray-600">Trusted stays, guides and services</p>
-                        </div>
-                        <div className="text-center md:text-left">
-                            <div className="w-16 h-16 rounded-2xl bg-cyan-100 flex items-center justify-center mx-auto md:mx-0 mb-4">
-                                <svg className="w-8 h-8 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Easy trip planning</h3>
-                            <p className="text-sm text-gray-600">Curated itineraries for every traveler</p>
-                        </div>
-                    </div>
-                </Container>
-            </section>
-
-            {/* Travel Experiences Section */}
-            <section className="py-12 md:py-16 bg-white">
-                <Container>
-                    <div className="mb-8">
-                        <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
-                            Plan your journey, your way
+                    <div className="relative mb-9 max-w-2xl">
+                        <span className="text-xs font-extrabold uppercase tracking-[0.2em] text-violet-700">
+                            Travel your way
+                        </span>
+                        <h2 className="mt-2 text-3xl font-black tracking-tight text-[#17213d] sm:text-4xl">
+                            Plan Your Journey, Your Way
                         </h2>
-                        <p className="text-gray-600 mt-2 text-sm md:text-base">Curated travel experiences, local culture, comfortable stays and reliable transport.</p>
+                        <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
+                            Choose the kind of Bihar experience you want to discover.
+                        </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Heritage & Spiritual Tours */}
-                        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-                            <div className="w-14 h-14 rounded-xl bg-teal-100 flex items-center justify-center mb-4">
-                                <svg className="w-7 h-7 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Heritage & Spiritual Tours</h3>
-                            <p className="text-sm text-gray-600 mb-4">Visit ancient sites, temples and spiritual destinations.</p>
+                    <div className="relative grid gap-5 md:grid-cols-3">
+                        {EXPERIENCE_CARDS.map((card) => (
                             <Link
-                                href="/services/tourism"
-                                className="inline-flex items-center text-sm font-bold text-teal-600 hover:text-teal-700 transition-colors"
+                                key={card.title}
+                                href={card.href}
+                                className="group rounded-[24px] border border-white bg-white/90 p-6 shadow-[0_10px_35px_rgba(69,36,115,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(69,36,115,0.12)]"
                             >
-                                Explore Tours →
+                                <div className={`grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br ${card.tone} text-2xl ${card.accent}`}>
+                                    {card.icon}
+                                </div>
+                                <h3 className="mt-5 text-lg font-black text-[#17213d] transition group-hover:text-violet-700">
+                                    {card.title}
+                                </h3>
+                                <p className="mt-2 min-h-[48px] text-sm leading-6 text-slate-500">
+                                    {card.description}
+                                </p>
+                                <span className={`mt-5 inline-flex items-center gap-2 text-sm font-extrabold ${card.accent}`}>
+                                    Explore more <span className="transition group-hover:translate-x-1">→</span>
+                                </span>
                             </Link>
-                        </div>
+                        ))}
+                    </div>
 
-                        {/* Local Experiences */}
-                        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-                            <div className="w-14 h-14 rounded-xl bg-orange-100 flex items-center justify-center mb-4">
-                                <svg className="w-7 h-7 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Local Experiences</h3>
-                            <p className="text-sm text-gray-600 mb-4">Discover local culture, art, food and traditional villages.</p>
-                            <Link
-                                href="/services/tourism"
-                                className="inline-flex items-center text-sm font-bold text-orange-600 hover:text-orange-700 transition-colors"
-                            >
-                                Explore Experiences →
-                            </Link>
+                    <div className="mt-9 flex flex-col gap-4 rounded-[24px] border border-violet-100 bg-white/80 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-7">
+                        <div>
+                            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-violet-700">
+                                A local favourite
+                            </p>
+                            <h3 className="mt-1 text-xl font-black text-[#17213d]">
+                                Discover Jamui&apos;s hidden gems
+                            </h3>
+                            <p className="mt-1 text-sm text-slate-500">
+                                Explore places, maps and tourism information for Jamui.
+                            </p>
                         </div>
-
-                        {/* Stays & Transport */}
-                        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-                            <div className="w-14 h-14 rounded-xl bg-cyan-100 flex items-center justify-center mb-4">
-                                <svg className="w-7 h-7 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Stays & Transport</h3>
-                            <p className="text-sm text-gray-600 mb-4">Find comfortable stays and reliable transport options.</p>
-                            <Link
-                                href="/services/tourism"
-                                className="inline-flex items-center text-sm font-bold text-cyan-600 hover:text-cyan-700 transition-colors"
-                            >
-                                Explore Stays →
-                            </Link>
-                        </div>
+                        <Link
+                            href="/services/tourism?district=Jamui"
+                            className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-violet-700 to-purple-600 px-6 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5"
+                        >
+                            Explore Jamui <span className="ml-2">→</span>
+                        </Link>
                     </div>
                 </Container>
-            </section>
 
-            <section className="py-8 bg-white">
-                <Container>
-                    <Link
-                        href="/services/tourism?district=Jamui"
-                        className="inline-flex text-sm font-bold text-teal-600 hover:text-teal-700"
+                {/* Bihar-inspired decorative landscape */}
+                <div className="pointer-events-none relative mt-12 h-20 overflow-hidden sm:h-28">
+                    <svg
+                        viewBox="0 0 1440 120"
+                        preserveAspectRatio="none"
+                        className="absolute bottom-0 h-full w-full"
+                        fill="none"
+                        aria-hidden="true"
                     >
-                        Explore Jamui places, map and tourism assistant
-                        <span className="ml-2" aria-hidden="true">→</span>
-                    </Link>
-                </Container>
+                        <path
+                            d="M0 76 Q120 35 240 76 T480 76 T720 76 T960 76 T1200 76 T1440 64 V120 H0Z"
+                            fill="#d9c3ff"
+                            opacity=".55"
+                        />
+                        <path
+                            d="M0 98 Q180 65 360 98 T720 98 T1080 98 T1440 86 V120 H0Z"
+                            fill="#a78bfa"
+                            opacity=".5"
+                        />
+                        <path
+                            d="M0 112 Q180 88 360 112 T720 112 T1080 112 T1440 102 V120 H0Z"
+                            fill="#7c3aed"
+                            opacity=".55"
+                        />
+                    </svg>
+                </div>
             </section>
         </main>
     );
