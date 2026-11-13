@@ -525,7 +525,7 @@ export const TOURISM_IMAGE_ASSETS: Record<
   {
     src: string;
     alt: string;
-    attribution: TourismImageAttribution;
+    attribution?: TourismImageAttribution;
   }
 > = {
   "patna-golghar": {
@@ -579,14 +579,11 @@ export const TOURISM_IMAGE_ASSETS: Record<
     },
   },
   "mahabodhi-temple": {
-    src: "/tourism/verified/mahabodhi-votive-stupas.jpg",
-    alt: "Votive stupas at the Mahabodhi Temple complex in Bodh Gaya",
-    attribution: {
-      name: "Sumit Surai",
-      source: "https://commons.wikimedia.org/wiki/File:Votive_Stupas_-_Mahabodhi_Temple_Complex_-_Bodh_Gaya_(13).jpg",
-      license: "CC BY-SA 4.0",
-      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
-    },
+    // Local Gaya image added by the project owner in public/images/districts.
+    // This shared asset updates the Gaya destination card, hero slider,
+    // curated spiritual experience, and Mahabodhi Temple place entry.
+    src: "/images/districts/03_Gaya_Bodh_Gaya.jpg",
+    alt: "Bodh Gaya temple and heritage landscape in Gaya, Bihar",
   },
   "vishwa-shanti-stupa": {
     src: "/tourism/verified/rajgir-shanti-stupa.jpg",
@@ -675,7 +672,6 @@ export const TOURISM_DESTINATION_IMAGES: Record<
   Gaya: {
     src: TOURISM_IMAGE_ASSETS["mahabodhi-temple"].src,
     alt: TOURISM_IMAGE_ASSETS["mahabodhi-temple"].alt,
-    imageAttribution: TOURISM_IMAGE_ASSETS["mahabodhi-temple"].attribution,
   },
   Rajgir: {
     src: TOURISM_IMAGE_ASSETS["vishwa-shanti-stupa"].src,
@@ -693,8 +689,8 @@ export const TOURISM_DESTINATION_IMAGES: Record<
     imageAttribution: TOURISM_IMAGE_ASSETS["punaura-dham"].attribution,
   },
   Vaishali: {
-    src: "",
-    alt: "No independently verified destination photo is available for Vaishali",
+    src: "/images/districts/07_Vaishali.jpg",
+    alt: "Vaishali Buddhist heritage destination in Bihar",
   },
   Madhubani: {
     src: TOURISM_IMAGE_ASSETS["madhubani-art"].src,
@@ -1070,7 +1066,8 @@ export const TOURISM_PLACES: TourismPlace[] = [
     historySources: [
       { label: "Bihar Tourism", url: "https://tourism.bihar.gov.in/en/destinations/vaishali" },
     ],
-    image: undefined,
+    image: TOURISM_DESTINATION_IMAGES.Vaishali.src,
+    imageAlt: TOURISM_DESTINATION_IMAGES.Vaishali.alt,
     lat: 25.9890,
     lng: 85.3490,
     featured: true,
