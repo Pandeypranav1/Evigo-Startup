@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "upload.wikimedia.org",
       },
+      {
+        protocol: "https",
+        hostname: "thumb.wikimedia.org",
+      },
       // Leaflet default marker icons are served from unpkg CDN
       {
         protocol: "https",
@@ -21,6 +25,11 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "*.tile.openstreetmap.org",
+      },
+      // Supabase storage for provider image uploads
+      {
+        protocol: "https",
+        hostname: "gkunzumvfaqbyneugywj.supabase.co",
       },
     ],
   },

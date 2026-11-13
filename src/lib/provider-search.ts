@@ -1,9 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export type ProviderSort = "name" | "rating" | "price";
+
 export type ProviderSearchFilters = {
   category?: string;
   city?: string;
   budget?: number;
+  query?: string;
+  sort?: ProviderSort;
+  offset?: number;
   limit?: number;
 };
 
@@ -105,49 +110,88 @@ export function getProviderMaximumPrice(priceRange: string | null): number | nul
   return prices.length > 0 ? prices[prices.length - 1] : null;
 }
 
+function matchesTextQuery(provider: ProviderListing, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return [
+    provider.business_name,
+    provider.owner_name,
+    provider.description,
+    provider.city,
+    provider.category,
+    ...(provider.service_areas ?? []),
+  ].some((field) => field?.toLowerCase().includes(needle));
+}
+
+function matchesCity(provider: ProviderListing, city: string): boolean {
+  const needle = city.trim().toLowerCase();
+  if (!needle) return true;
+  if (provider.city?.toLowerCase().includes(needle)) return true;
+  return (provider.service_areas ?? []).some((area) =>
+    area.toLowerCase().includes(needle)
+  );
+}
+
+function isTestOrPlaceholderListing(provider: ProviderListing): boolean {
+  const content = `${provider.business_name ?? ""} ${provider.description ?? ""}`;
+  return (
+    /^(?:test|demo)\b/i.test(provider.business_name?.trim() ?? "") ||
+    /\b(?:test|demo|sample|placeholder)\s+(?:venue|provider|listing|account|business|data|record|catering|photo|studio|caterer)\b/i.test(content)
+  );
+}
+
+function compareProviders(sort: ProviderSort | undefined) {
+  return (a: ProviderListing, b: ProviderListing): number => {
+    if (sort === "rating") {
+      const ratingDiff = (b.rating ?? -1) - (a.rating ?? -1);
+      if (ratingDiff !== 0) return ratingDiff;
+    } else if (sort === "price") {
+      const priceA = getProviderStartingPrice(a.price_range) ?? Number.POSITIVE_INFINITY;
+      const priceB = getProviderStartingPrice(b.price_range) ?? Number.POSITIVE_INFINITY;
+      if (priceA !== priceB) return priceA - priceB;
+    }
+    return (a.business_name ?? "").localeCompare(b.business_name ?? "");
+  };
+}
+
 export async function searchApprovedProviders(
   supabase: SupabaseClient,
   filters: ProviderSearchFilters = {}
-): Promise<ProviderListing[]> {
+): Promise<{ providers: ProviderListing[]; total: number }> {
   const limit = Math.min(Math.max(Math.trunc(filters.limit ?? 50), 1), 100);
-  const buildQuery = () => {
-    let query = supabase
-      .from("providers")
-      .select("id,registration_status,business_name,owner_name,category,city,phone,experience_years,service_areas,description,price_range,rating,image_url,is_verified,is_bookable")
-      .eq("registration_status", "approved")
-      .eq("is_verified", true)
-      .eq("is_bookable", true)
-      .order("business_name", { ascending: true })
-      .limit(250);
+  const offset = Math.max(Math.trunc(filters.offset ?? 0), 0);
+  const sort = filters.sort;
 
-    if (filters.category) query = query.ilike("category", filters.category);
-    return query;
-  };
+  let query = supabase
+    .from("providers")
+    .select("id,registration_status,business_name,owner_name,category,city,phone,experience_years,service_areas,description,price_range,rating,image_url,is_verified,is_bookable")
+    .eq("registration_status", "approved")
+    .eq("is_verified", true)
+    .eq("is_bookable", true)
+    .order("business_name", { ascending: true })
+    .limit(250);
 
-  const result = filters.city
-    ? await Promise.all([
-        buildQuery().ilike("city", `%${filters.city}%`),
-        buildQuery().contains("service_areas", [filters.city]),
-      ])
-    : [await buildQuery()];
+  if (filters.category) query = query.ilike("category", filters.category);
 
-  const failedQuery = result.find(({ error }) => error);
-  if (failedQuery?.error) throw failedQuery.error;
+  const { data, error } = await query;
+  if (error) throw error;
 
-  const uniqueProviders = new Map<string, ProviderListing>();
-  for (const queryResult of result) {
-    for (const provider of queryResult.data ?? []) {
-      uniqueProviders.set(provider.id, provider as ProviderListing);
-    }
-  }
-
-  return [...uniqueProviders.values()]
+  const matched = (data ?? [])
     .filter((provider) => {
+      const listing = provider as ProviderListing;
+      if (isTestOrPlaceholderListing(listing)) return false;
+      if (filters.city && !matchesCity(listing, filters.city)) return false;
+      if (filters.query && !matchesTextQuery(listing, filters.query)) return false;
       if (filters.budget === undefined) return true;
-      const maximumPrice = getProviderMaximumPrice(provider.price_range);
+      const maximumPrice = getProviderMaximumPrice(listing.price_range);
       return maximumPrice !== null && maximumPrice <= filters.budget!;
     })
-    .slice(0, limit);
+    .sort(compareProviders(sort));
+
+  return {
+    providers: matched.slice(offset, offset + limit),
+    total: matched.length,
+  };
 }
 
 export function toPublicProviderListing(provider: ProviderListing) {

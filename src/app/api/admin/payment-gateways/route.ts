@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedUser } from '@/lib/server';
+import { requireAdminAccess } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   try {
-    const { user } = await getAuthenticatedUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
-    }
-
-    // TODO: Add admin role check
+    const authorization = await requireAdminAccess();
+    if (!authorization.authorized) return authorization.response;
 
     const supabase = createAdminClient();
 
@@ -63,12 +59,8 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { user } = await getAuthenticatedUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
-    }
-
-    // TODO: Add admin role check
+    const authorization = await requireAdminAccess();
+    if (!authorization.authorized) return authorization.response;
 
     const body = await request.json();
     const { gateway_id, is_active, priority, daily_limit, warning_threshold, per_transaction_limit, in_maintenance } = body;
@@ -116,7 +108,7 @@ export async function PATCH(request: Request) {
 
     // Log audit
     await supabase.from('payment_admin_audit_log').insert({
-      admin_user_id: user.id,
+      admin_user_id: authorization.user.id,
       action: 'update_gateway',
       target_type: 'payment_gateway',
       target_id: gateway_id,

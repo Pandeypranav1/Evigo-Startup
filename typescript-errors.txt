@@ -1,0 +1,19 @@
+﻿src/app/api/ai/tourism-assistant/route.ts(3,3): error TS2305: Module '"@/lib/constants"' has no exported member 'getVerifiedTourismCoordinates'.
+src/app/combo-packs/page.tsx(9,10): error TS2305: Module '"@/lib/constants"' has no exported member 'TOURISM_IMAGE_ASSETS'.
+src/app/page.tsx(12,5): error TS2305: Module '"@/lib/constants"' has no exported member 'TOURISM_IMAGE_ASSETS'.
+src/app/page.tsx(369,39): error TS2367: This comparison appears to be unintentional because the types '"Catering" | "Photography" | "DJ" | "Mehendi & Makeup"' and '"Transport"' have no overlap.
+src/app/services/tourism/page.tsx(10,3): error TS2305: Module '"@/lib/constants"' has no exported member 'getTourismPlaceMapUrl'.
+src/app/services/tourism/page.tsx(11,3): error TS2305: Module '"@/lib/constants"' has no exported member 'getVerifiedTourismCoordinates'.
+src/app/services/tourism/page.tsx(162,33): error TS2339: Property 'imageAttribution' does not exist on type 'TourismPlace'.
+src/app/services/tourism/page.tsx(165,26): error TS2339: Property 'imageAlt' does not exist on type 'TourismPlace'.
+src/app/services/tourism/page.tsx(166,34): error TS2339: Property 'imageAttribution' does not exist on type 'TourismPlace'.
+src/app/services/tourism/page.tsx(183,18): error TS2339: Property 'imageAttribution' does not exist on type 'TourismPlace'.
+src/app/services/tourism/page.tsx(185,34): error TS2339: Property 'imageAttribution' does not exist on type 'TourismPlace'.
+src/app/services/tourism/page.tsx(268,31): error TS2339: Property 'imageAttribution' does not exist on type 'TourismPlace'.
+src/app/services/tourism/page.tsx(272,26): error TS2339: Property 'imageAlt' does not exist on type 'TourismPlace'.
+src/app/services/tourism/page.tsx(273,34): error TS2339: Property 'imageAttribution' does not exist on type 'TourismPlace'.
+src/app/services/tourism/page.tsx(336,18): error TS2339: Property 'imageAttribution' does not exist on type 'TourismPlace'.
+src/app/services/tourism/page.tsx(338,34): error TS2339: Property 'imageAttribution' does not exist on type 'TourismPlace'.
+src/components/ComboPackImage.tsx(7,10): error TS2305: Module '"@/lib/constants"' has no exported member 'TOURISM_IMAGE_ASSETS'.
+src/components/TourismMap.tsx(6,3): error TS2305: Module '"@/lib/constants"' has no exported member 'getTourismPlaceMapUrl'.
+src/components/TourismMap.tsx(7,3): error TS2305: Module '"@/lib/constants"' has no exported member 'getVerifiedTourismCoordinates'.

@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 import { getAuthenticatedUser } from "@/lib/server";
 import { isAuthorizedAdmin } from "@/lib/admin";
-import { buildProviderReviewUpdate } from "@/lib/provider-workflow";
+import {
+    buildProviderReviewUpdate,
+    PROVIDER_REVIEW_ACTIONS,
+    PROVIDER_REVIEW_REQUIRED_STATUS,
+    type ProviderReviewAction,
+} from "@/lib/provider-workflow";
 
 export const runtime = "nodejs";
 
@@ -39,7 +44,7 @@ export async function GET(request: Request) {
 
         const { searchParams } = new URL(request.url);
         const status = (searchParams.get("status") ?? "all").toLowerCase();
-        const allowed = new Set(["all", "pending", "approved", "rejected"]);
+        const allowed = new Set(["all", "pending", "approved", "rejected", "suspended"]);
 
         if (!allowed.has(status)) {
             return NextResponse.json({ success: false, error: "Invalid status filter" }, { status: 400 });
@@ -62,6 +67,7 @@ export async function GET(request: Request) {
             pending: providers.filter((provider) => provider.registration_status === "pending").length,
             approved: providers.filter((provider) => provider.registration_status === "approved").length,
             rejected: providers.filter((provider) => provider.registration_status === "rejected").length,
+            suspended: providers.filter((provider) => provider.registration_status === "suspended").length,
         };
 
         const filteredProviders =
@@ -86,72 +92,94 @@ export async function PATCH(request: Request) {
 
         const body = await request.json();
         const providerId = String(body.id ?? "").trim();
-        const action = String(body.action ?? "").trim().toLowerCase();
+        const action = String(body.action ?? "").trim().toLowerCase() as ProviderReviewAction;
 
         if (!providerId) {
             return NextResponse.json({ success: false, error: "Provider id is required." }, { status: 400 });
         }
 
-        if (!['approve', 'reject'].includes(action)) {
-            return NextResponse.json({ success: false, error: "Action must be approve or reject." }, { status: 400 });
+        if (!PROVIDER_REVIEW_ACTIONS.includes(action)) {
+            return NextResponse.json(
+                { success: false, error: "Action must be approve, reject, suspend, or reinstate." },
+                { status: 400 }
+            );
+        }
+
+        const reason = String(body.admin_note ?? body.reason ?? "").trim();
+        if (action === "reject" && !reason) {
+            return NextResponse.json({ success: false, error: "Rejection reason is required." }, { status: 400 });
         }
 
         const supabase = createAdminClient();
 
-        if (action === "approve") {
-            const { data, error } = await supabase
-                .from("providers")
-                .update(buildProviderReviewUpdate("approve"))
-                .eq("id", providerId)
-                .eq("registration_status", "pending")
-                .select()
-                .maybeSingle();
+        const { data: target, error: lookupError } = await supabase
+            .from("providers")
+            .select("id, user_id, registration_status")
+            .eq("id", providerId)
+            .maybeSingle();
 
-            if (error) {
-                console.error("[PATCH /api/admin/providers] approve error:", error);
-                return NextResponse.json(
-                    { success: false, error: "Provider application approval failed.", code: "PROVIDER_APPROVAL_FAILED" },
-                    { status: 500 }
-                );
-            }
-            if (!data) {
-                return NextResponse.json(
-                    { success: false, error: "The application was not found or is no longer pending.", code: "APPLICATION_NOT_PENDING" },
-                    { status: 409 }
-                );
-            }
-
-            return NextResponse.json({ success: true, provider: data, message: "Provider approved successfully." });
+        if (lookupError) {
+            console.error("[PATCH /api/admin/providers] lookup error:", lookupError);
+            return NextResponse.json(
+                { success: false, error: "Unable to load the provider application.", code: "PROVIDER_LOOKUP_FAILED" },
+                { status: 500 }
+            );
+        }
+        if (!target) {
+            return NextResponse.json(
+                { success: false, error: "Provider application not found.", code: "APPLICATION_NOT_FOUND" },
+                { status: 404 }
+            );
+        }
+        if (target.user_id && target.user_id === authorization.user.id) {
+            return NextResponse.json(
+                { success: false, error: "You cannot review your own provider application.", code: "SELF_REVIEW_FORBIDDEN" },
+                { status: 403 }
+            );
         }
 
-        const reason = String(body.admin_note ?? body.reason ?? "").trim();
-        if (!reason) {
-            return NextResponse.json({ success: false, error: "Rejection reason is required." }, { status: 400 });
+        const requiredStatus = PROVIDER_REVIEW_REQUIRED_STATUS[action];
+        if (target.registration_status !== requiredStatus) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: `This application cannot be ${action === "reinstate" ? "reinstated" : `${action}d`} from its current status.`,
+                    code: "INVALID_STATUS_TRANSITION",
+                },
+                { status: 409 }
+            );
         }
 
         const { data, error } = await supabase
             .from("providers")
-            .update(buildProviderReviewUpdate("reject", reason))
+            .update(buildProviderReviewUpdate(action, reason || undefined))
             .eq("id", providerId)
-            .eq("registration_status", "pending")
+            .eq("registration_status", requiredStatus)
             .select()
             .maybeSingle();
 
         if (error) {
-            console.error("[PATCH /api/admin/providers] reject error:", error);
+            console.error(`[PATCH /api/admin/providers] ${action} error:`, error);
             return NextResponse.json(
-                { success: false, error: "Provider application rejection failed.", code: "PROVIDER_REJECTION_FAILED" },
+                { success: false, error: `Provider application ${action} failed.`, code: "PROVIDER_REVIEW_UPDATE_FAILED" },
                 { status: 500 }
             );
         }
         if (!data) {
             return NextResponse.json(
-                { success: false, error: "The application was not found or is no longer pending.", code: "APPLICATION_NOT_PENDING" },
+                { success: false, error: "The application was not found or is no longer in a reviewable state.", code: "APPLICATION_NOT_REVIEWABLE" },
                 { status: 409 }
             );
         }
 
-        return NextResponse.json({ success: true, provider: data, message: "Provider rejected successfully." });
+        const actionLabels: Record<ProviderReviewAction, string> = {
+            approve: "approved",
+            reject: "rejected",
+            suspend: "suspended",
+            reinstate: "reinstated",
+        };
+
+        return NextResponse.json({ success: true, provider: data, message: `Provider ${actionLabels[action]} successfully.` });
     } catch (err: any) {
         console.error("[PATCH /api/admin/providers] request failed:", err);
         return NextResponse.json(

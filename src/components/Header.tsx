@@ -1,91 +1,206 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { PageContainer } from "@/components/PageContainer";
 
 function isActiveNavPath(pathname: string, href: string) {
   return (
     pathname === href ||
+    (href === "/combo-packs" && pathname.startsWith("/combo-packs")) ||
     (href === "/events" && pathname.startsWith("/events")) ||
-    (href === "/travel-tourism" && (pathname.startsWith("/travel-tourism") || pathname.startsWith("/services/tourism"))) ||
+    (href === "/travel-tourism" &&
+      (pathname.startsWith("/travel-tourism") ||
+        pathname.startsWith("/services/tourism"))) ||
     (href === "/hotels" && pathname.startsWith("/hotels"))
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const active = isActiveNavPath(pathname, href);
+
   return (
     <Link
       href={href}
-      className={`group relative whitespace-nowrap text-[13px] font-semibold transition-colors duration-300 ${active ? "text-orange-400" : "text-white/75 hover:text-white"}`}
+      className={`relative whitespace-nowrap py-2 text-[13px] font-semibold transition-colors duration-200 ${active
+          ? "text-indigo-700"
+          : "text-slate-600 hover:text-indigo-700"
+        }`}
     >
       {children}
-      <span className={`absolute -bottom-2 left-0 h-0.5 rounded-full bg-orange-400 transition-all duration-300 ${active ? "w-full" : "w-0 group-hover:w-full"}`} />
+      <span
+        className={`absolute bottom-0 left-0 h-0.5 rounded-full bg-indigo-600 transition-all ${active ? "w-full" : "w-0"
+          }`}
+      />
     </Link>
   );
 }
 
-function AvatarDropdown({ user, role, onSignOut }: { user: any, role: string | null, onSignOut: () => void }) {
+function SearchBar() {
+  return (
+    <Link
+      href="/explore"
+      aria-label="Search destinations and services"
+      className="hidden min-w-[260px] max-w-[380px] flex-1 items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-500 transition hover:border-indigo-300 hover:bg-white 2xl:flex"
+    >
+      <svg
+        className="h-5 w-5 shrink-0 text-slate-400"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <circle cx="11" cy="11" r="7" strokeWidth="1.8" />
+        <path
+          strokeLinecap="round"
+          strokeWidth="1.8"
+          d="m16 16 4 4"
+        />
+      </svg>
+
+      <span className="flex-1 truncate">
+        Search destinations, hotels, events...
+      </span>
+
+      <span className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+        Explore
+      </span>
+    </Link>
+  );
+}
+
+function AvatarDropdown({
+  user,
+  role,
+  onSignOut,
+}: {
+  user: any;
+  role: string | null;
+  onSignOut: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
 
+  const dashboardPath =
+    role === "provider" ? "/provider/dashboard" : "/dashboard";
+
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+    const handler = (event: MouseEvent) => {
+      if (
+        dropRef.current &&
+        !dropRef.current.contains(event.target as Node)
+      ) {
         setOpen(false);
       }
     };
+
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const initial = user?.email ? user.email.charAt(0).toUpperCase() : "U";
+  const initial = user?.email
+    ? user.email.charAt(0).toUpperCase()
+    : "U";
 
   return (
-    <div className="relative flex items-center" ref={dropRef}>
+    <div className="relative" ref={dropRef}>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 p-[2px] transition-all hover:scale-105 hover:shadow-md focus:outline-none bg-white/10"
+        aria-expanded={open}
+        aria-label="Open profile menu"
+        className="flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 transition hover:border-indigo-300 hover:bg-slate-50"
       >
         {user?.profileImage ? (
-          <img src={user.profileImage} alt="Profile" className="h-full w-full rounded-full object-cover shadow-inner" />
+          <img
+            src={user.profileImage}
+            alt="Profile"
+            className="h-9 w-9 rounded-full object-cover"
+          />
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 text-sm font-bold text-white shadow-inner">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-violet-600 to-cyan-500 text-sm font-bold text-white">
             {initial}
-          </div>
+          </span>
         )}
+
+        <span className="hidden max-w-[110px] truncate text-xs font-semibold text-slate-700 sm:block">
+          {user?.email?.split("@")[0] || "My Account"}
+        </span>
+
+        <svg
+          className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""
+            }`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+        >
+          <path
+            d="m7 10 5 5 5-5"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
 
-      <div
-        className={`absolute right-0 top-full mt-3 w-56 origin-top-right rounded-2xl border border-white/10 bg-[#1E293B] p-2 shadow-xl transition-all duration-300 ${open ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"
-          }`}
-      >
-        <div className="px-3 py-2 border-b border-white/10 mb-2">
-          <div className="text-xs font-semibold text-white/50 uppercase tracking-wider">{role === "provider" ? "Partner" : "Client"}</div>
-          <div className="text-sm font-bold text-white truncate mt-0.5">{user.email}</div>
-        </div>
+      {open && (
+        <div className="absolute right-0 top-full z-[90] mt-3 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+          <div className="border-b border-slate-100 px-3 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+              {role === "provider" ? "Service Partner" : "Client Account"}
+            </p>
+            <p className="mt-1 truncate text-sm font-semibold text-slate-800">
+              {user?.email}
+            </p>
+          </div>
 
-        <Link href="#" className="flex w-full items-center px-3 py-2.5 text-sm font-medium text-white/80 rounded-xl hover:bg-white/10 hover:text-white transition-colors" onClick={() => setOpen(false)}>
-          Profile
-        </Link>
-        <Link href="#" className="flex w-full items-center px-3 py-2.5 text-sm font-medium text-white/80 rounded-xl hover:bg-white/10 hover:text-white transition-colors" onClick={() => setOpen(false)}>
-          My Bookings
-        </Link>
-        <Link href={role === "provider" ? "/provider/dashboard" : "/dashboard"} className="flex w-full items-center px-3 py-2.5 text-sm font-medium text-white/80 rounded-xl hover:bg-white/10 hover:text-white transition-colors" onClick={() => setOpen(false)}>
-          Dashboard
-        </Link>
-        <button onClick={() => { setOpen(false); onSignOut(); }} className="mt-1 flex w-full items-center px-3 py-2.5 text-sm font-medium text-red-400 rounded-xl hover:bg-red-500/10 transition-colors">
-          Logout
-        </button>
-      </div>
+          <Link
+            href={`${dashboardPath}#profile`}
+            onClick={() => setOpen(false)}
+            className="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+          >
+            My Profile
+          </Link>
+
+          <Link
+            href={`${dashboardPath}#bookings`}
+            onClick={() => setOpen(false)}
+            className="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+          >
+            My Bookings
+          </Link>
+
+          <Link
+            href={dashboardPath}
+            onClick={() => setOpen(false)}
+            className="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+          >
+            Dashboard
+          </Link>
+
+          <button
+            onClick={() => {
+              setOpen(false);
+              onSignOut();
+            }}
+            className="mt-1 w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+          >
+            Logout
+          </button>
+        </div>
+      )}
     </div>
   );
 }
-
-import { PageContainer } from "@/components/PageContainer";
 
 export function Header() {
   const { user, role, signOut } = useAuth();
@@ -93,200 +208,303 @@ export function Header() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const handleSignOut = () => {
-    signOut();
-    router.push("/");
-    setMenuOpen(false);
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setMenuOpen(false);
+      router.push("/");
+    } catch (error) {
+      console.error("Unable to sign out", error);
+      window.alert("Logout could not be completed. Please try again.");
+    }
   };
 
-  // Close mobile menu on resize to desktop
   useEffect(() => {
-    const handleResize = () => { if (window.innerWidth >= 1280) setMenuOpen(false); };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    setMenuOpen(false);
+  }, [pathname]);
 
-  // Prevent scroll when mobile menu open
   useEffect(() => {
     if (menuOpen) {
       document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = "auto";
+      document.body.style.overflow = "";
     }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [menuOpen]);
+
+  const mobileLinks = [
+    { label: "Home", href: "/" },
+    { label: "Explore Services", href: "/explore" },
+    { label: "Combo Packs", href: "/combo-packs" },
+    { label: "Events & Services", href: "/events" },
+    { label: "Travel & Tourism", href: "/travel-tourism" },
+    { label: "Hotels & Venues", href: "/hotels" },
+    { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
+  ];
 
   return (
     <>
-      <header className="sticky top-0 z-[70] w-full bg-[#0F172A]/95 backdrop-blur-xl border-b border-white/10 shadow-sm">
-        <PageContainer className="flex h-20 items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="group flex items-center gap-2" onClick={() => setMenuOpen(false)}>
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-cyan-500 shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
-              <span className="text-xl font-black text-white">E</span>
-            </div>
-            <span className="text-2xl font-black tracking-tight text-white transition-colors group-hover:text-violet-400">
+      <header className="sticky top-0 z-[70] w-full border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-xl">
+        <PageContainer className="flex min-h-[68px] items-center gap-4 py-2">
+          {/* Evigo brand */}
+          <Link
+            href="/"
+            className="group flex shrink-0 items-center gap-2"
+            aria-label="Evigo Home"
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-cyan-500 text-xl font-black text-white shadow-md shadow-indigo-200 transition-transform group-hover:scale-105">
+              E
+            </span>
+            <span className="text-2xl font-black tracking-tight text-slate-900">
               Evigo
             </span>
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="hidden xl:flex items-center gap-4">
+          {/* Search */}
+          <SearchBar />
+
+          {/* Desktop navigation */}
+          <nav className="hidden items-center gap-4 xl:flex">
             <NavLink href="/">Home</NavLink>
             <NavLink href="/combo-packs">Combo Packs</NavLink>
             <NavLink href="/events">Events &amp; Services</NavLink>
-            <NavLink href="/travel-tourism">Travel &amp; Tourism</NavLink>
+            <NavLink href="/travel-tourism">
+              Travel &amp; Tourism
+            </NavLink>
             <NavLink href="/hotels">Hotels &amp; Venues</NavLink>
             <NavLink href="/about">About</NavLink>
             <NavLink href="/contact">Contact</NavLink>
           </nav>
 
-          {/* Desktop CTAs */}
-          <div className="hidden xl:flex items-center gap-3">
-            <Link href="/explore" aria-label="Search services" className="rounded-lg p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </Link>
+          {/* Desktop actions */}
+          <div className="ml-auto hidden shrink-0 items-center gap-3 xl:flex">
             {!user ? (
               <>
-                <Link href="/login" className="inline-flex items-center justify-center px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-lg transition-colors border border-white/20">
+                <Link
+                  href="/login"
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-800 transition hover:border-indigo-300 hover:bg-indigo-50"
+                >
                   Login
                 </Link>
-                <Link href="/explore" className="inline-flex items-center justify-center px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg transition-colors shadow-sm">
+                <Link
+                  href="/explore"
+                  className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-600"
+                >
                   Book a Service
                 </Link>
               </>
             ) : (
-              <div className="flex items-center gap-4">
-                <Link href="/explore" className="inline-flex items-center justify-center px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg transition-colors shadow-sm">
+              <>
+                <Link
+                  href="/explore"
+                  className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-orange-600"
+                >
                   Book a Service
                 </Link>
-                <AvatarDropdown user={user} role={role} onSignOut={handleSignOut} />
-              </div>
+                <AvatarDropdown
+                  user={user}
+                  role={role}
+                  onSignOut={handleSignOut}
+                />
+              </>
             )}
           </div>
 
-          {/* Mobile hamburger button */}
-          <button
-            className="relative z-[60] flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 transition-colors hover:bg-white/20 xl:hidden"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
-            aria-expanded={menuOpen}
-            aria-controls="mobile-navigation"
+          {/* Mobile search and menu */}
+          <Link
+            href="/explore"
+            aria-label="Search services"
+            className="ml-auto rounded-full p-2 text-slate-600 hover:bg-indigo-50 xl:hidden"
           >
-            <span className={`block h-0.5 w-5 rounded-full bg-white transition-transform duration-300 ${menuOpen ? 'translate-y-2 rotate-45' : ''}`} />
-            <span className={`block h-0.5 w-5 rounded-full bg-white transition-opacity duration-300 ${menuOpen ? 'opacity-0' : 'opacity-100'}`} />
-            <span className={`block h-0.5 w-5 rounded-full bg-white transition-transform duration-300 ${menuOpen ? '-translate-y-2 -rotate-45' : ''}`} />
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <circle cx="11" cy="11" r="7" strokeWidth="1.8" />
+              <path
+                d="m16 16 4 4"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={menuOpen}
+            aria-controls="evigo-mobile-menu"
+            className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 xl:hidden"
+          >
+            <span
+              className={`h-0.5 w-5 rounded-full bg-current transition ${menuOpen ? "translate-y-2 rotate-45" : ""
+                }`}
+            />
+            <span
+              className={`h-0.5 w-5 rounded-full bg-current transition ${menuOpen ? "opacity-0" : ""
+                }`}
+            />
+            <span
+              className={`h-0.5 w-5 rounded-full bg-current transition ${menuOpen ? "-translate-y-2 -rotate-45" : ""
+                }`}
+            />
           </button>
         </PageContainer>
       </header>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile overlay */}
       <div
-        className={`fixed inset-0 z-[55] bg-black/50 backdrop-blur-xl transition-opacity duration-300 xl:hidden ${menuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
         onClick={() => setMenuOpen(false)}
+        className={`fixed inset-0 z-[75] bg-slate-900/40 backdrop-blur-sm transition-opacity xl:hidden ${menuOpen
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
+          }`}
       />
 
-      {/* Mobile Menu Slide-in Panel */}
-      <div
-        id="mobile-navigation"
-        className={`fixed top-0 right-0 z-[56] h-full w-[min(340px,88vw)] bg-[#0F172A] border-l border-white/10 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out xl:hidden flex flex-col ${menuOpen ? 'translate-x-0' : 'translate-x-full'
+      {/* Mobile navigation panel */}
+      <aside
+        id="evigo-mobile-menu"
+        className={`fixed right-0 top-0 z-[80] flex h-dvh w-[min(360px,90vw)] flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 xl:hidden ${menuOpen ? "translate-x-0" : "translate-x-full"
           }`}
       >
-        <div className="flex flex-col flex-1 px-6 pt-24 pb-8 overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-cyan-500 font-black text-white">
+              E
+            </span>
+            <span className="text-xl font-black text-slate-900">
+              Evigo
+            </span>
+          </Link>
+
+          <button
+            onClick={() => setMenuOpen(false)}
+            aria-label="Close navigation"
+            className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-xl text-slate-600 hover:bg-slate-200"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5">
           {user && (
-            <div className="mb-8 flex items-center gap-4 rounded-2xl bg-white/5 p-4 border border-white/10 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-violet-500 to-cyan-500" />
+            <div className="mb-5 flex items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-3">
               {user.profileImage ? (
-                <img src={user.profileImage} alt="Profile" className="h-12 w-12 rounded-full object-cover shadow-inner ring-2 ring-white/20" />
+                <img
+                  src={user.profileImage}
+                  alt="Profile"
+                  className="h-11 w-11 rounded-full object-cover"
+                />
               ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 text-lg font-bold text-white shadow-inner ring-2 ring-white/20">
-                  {user.email ? user.email.charAt(0).toUpperCase() : "U"}
-                </div>
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-violet-600 to-cyan-500 font-bold text-white">
+                  {user.email
+                    ? user.email.charAt(0).toUpperCase()
+                    : "U"}
+                </span>
               )}
-              <div>
-                <div className="text-[10px] font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-cyan-400 uppercase tracking-widest">{role === "provider" ? "Partner" : "Client"}</div>
-                <div className="text-sm font-bold text-white truncate mt-0.5">{user.email}</div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                  {role === "provider" ? "Service Partner" : "Client"}
+                </p>
+                <p className="truncate text-sm font-semibold text-slate-800">
+                  {user.email}
+                </p>
               </div>
             </div>
           )}
 
-          <nav className="flex flex-col gap-2">
-            <Link href="/explore" aria-label="Search services" className="group flex items-center justify-between border-b border-white/10 py-4 text-lg font-bold text-cyan-300 transition-colors hover:text-white" onClick={() => setMenuOpen(false)}>
-              Search services
-              <svg className="h-5 w-5 text-cyan-300/70 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
-              </svg>
-            </Link>
-            <Link href="/" className={`group flex items-center justify-between py-4 text-lg font-bold transition-colors border-b border-white/10 hover:text-white ${isActiveNavPath(pathname, "/") ? "text-orange-400" : "text-white/80"}`} onClick={() => setMenuOpen(false)}>
-              Home
-              <svg className="h-5 w-5 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
-            <Link href="/combo-packs" className={`group flex items-center justify-between py-4 text-lg font-bold transition-colors border-b border-white/10 hover:text-white ${isActiveNavPath(pathname, "/combo-packs") ? "text-orange-400" : "text-white/80"}`} onClick={() => setMenuOpen(false)}>
-              <span className="flex items-center gap-2">
-                <span>🎁</span>
-                <span>Combo Packs</span>
-              </span>
-              <svg className="h-5 w-5 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
-            <Link href="/events" className={`group flex items-center justify-between py-4 text-lg font-bold transition-colors border-b border-white/10 hover:text-white ${isActiveNavPath(pathname, "/events") ? "text-orange-400" : "text-white/80"}`} onClick={() => setMenuOpen(false)}>
-              Events &amp; Services
-              <svg className="h-5 w-5 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
-            <Link href="/travel-tourism" className={`group flex items-center justify-between py-4 text-lg font-bold transition-colors border-b border-white/10 hover:text-orange-400 ${isActiveNavPath(pathname, "/travel-tourism") ? "text-orange-400" : "text-white/80"}`} onClick={() => setMenuOpen(false)}>
-              Travel & Tourism
-              <svg className="h-5 w-5 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
-            <Link href="/hotels" className={`group flex items-center justify-between py-4 text-lg font-bold transition-colors border-b border-white/10 hover:text-white ${isActiveNavPath(pathname, "/hotels") ? "text-orange-400" : "text-white/80"}`} onClick={() => setMenuOpen(false)}>
-              Hotels &amp; Venues
-              <svg className="h-5 w-5 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
-            <Link href="/about" className="group flex items-center justify-between text-lg font-bold text-white/80 py-4 border-b border-white/10 hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
-              About
-              <svg className="h-5 w-5 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
-            <Link href="/contact" className="group flex items-center justify-between text-lg font-bold text-white/80 py-4 border-b border-white/10 hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
-              Contact
-              <svg className="h-5 w-5 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
+          <nav className="space-y-1">
+            {mobileLinks.map((item) => {
+              const active = isActiveNavPath(pathname, item.href);
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  className={`flex items-center justify-between rounded-xl px-4 py-3.5 text-sm font-semibold transition ${active
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                >
+                  {item.label}
+                  <span className="text-slate-400">→</span>
+                </Link>
+              );
+            })}
 
             {user && (
               <>
-                <Link href="#" className="group flex items-center justify-between text-lg font-bold text-white/80 py-4 border-b border-white/10 hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                <Link
+                  href={`${role === "provider"
+                      ? "/provider/dashboard"
+                      : "/dashboard"
+                    }#profile`}
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
                   My Profile
-                  <svg className="h-5 w-5 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </Link>
-                <Link href={role === "provider" ? "/provider/dashboard" : "/dashboard"} className="group flex items-center justify-between text-lg font-bold text-white/80 py-4 border-b border-white/10 hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
-                  Dashboard
-                  <svg className="h-5 w-5 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+
+                <Link
+                  href={`${role === "provider"
+                      ? "/provider/dashboard"
+                      : "/dashboard"
+                    }#bookings`}
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  My Bookings
                 </Link>
               </>
             )}
           </nav>
-
-          <div className="mt-auto pt-8 flex flex-col gap-4">
-            <Link href="/explore" className="flex w-full items-center justify-center rounded-xl bg-orange-500 px-6 py-4 text-base font-bold text-white transition-colors hover:bg-orange-600" onClick={() => setMenuOpen(false)}>
-              Book Service
-            </Link>
-            {!user ? (
-              <>
-                <Link href="/login" className="flex w-full items-center justify-center rounded-xl bg-white/10 border border-white/20 px-6 py-4 text-base font-bold text-white transition-colors hover:bg-white/20" onClick={() => setMenuOpen(false)}>
-                  Login
-                </Link>
-                <Link href="/partner" className="group relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-6 py-4 text-base font-bold text-white shadow-[0_4px_20px_rgba(139,92,246,0.3)] transition-all hover:shadow-[0_4px_30px_rgba(56,189,248,0.5)]" onClick={() => setMenuOpen(false)}>
-                  <span className="absolute inset-0 bg-white/20 translate-y-full transition-transform group-hover:translate-y-0" />
-                  <span className="relative">Become a Partner</span>
-                </Link>
-              </>
-            ) : (
-              <button onClick={handleSignOut} className="flex w-full items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 px-6 py-4 text-base font-bold text-red-400 transition-colors hover:bg-red-500/20">
-                Sign Out
-              </button>
-            )}
-          </div>
         </div>
-      </div>
+
+        <div className="space-y-3 border-t border-slate-100 p-5">
+          <Link
+            href="/explore"
+            onClick={() => setMenuOpen(false)}
+            className="flex w-full items-center justify-center rounded-xl bg-orange-500 px-5 py-3.5 text-sm font-bold text-white hover:bg-orange-600"
+          >
+            Book a Service
+          </Link>
+
+          {!user ? (
+            <Link
+              href="/login"
+              onClick={() => setMenuOpen(false)}
+              className="flex w-full items-center justify-center rounded-xl border border-slate-200 px-5 py-3.5 text-sm font-bold text-slate-800 hover:bg-slate-50"
+            >
+              Login
+            </Link>
+          ) : (
+            <button
+              onClick={handleSignOut}
+              className="w-full rounded-xl border border-red-100 bg-red-50 px-5 py-3.5 text-sm font-bold text-red-600 hover:bg-red-100"
+            >
+              Sign Out
+            </button>
+          )}
+
+          {!user && (
+            <Link
+              href="/partner"
+              onClick={() => setMenuOpen(false)}
+              className="flex w-full items-center justify-center rounded-xl bg-indigo-50 px-5 py-3.5 text-sm font-bold text-indigo-700 hover:bg-indigo-100"
+            >
+              Become a Partner
+            </Link>
+          )}
+        </div>
+      </aside>
     </>
   );
 }

@@ -44,20 +44,15 @@ export default function AdminComboPacksPage() {
       setLoadingData(true);
       setError(null);
 
-      const headers = {
-        "x-user-email": user.email,
-        "x-user-role": user.role ?? "provider",
-      };
-
       // 1. Fetch all combo packs (including inactive)
-      const packsRes = await fetch("/api/admin/combo-packs", { headers });
+      const packsRes = await fetch("/api/admin/combo-packs");
       const packsData = await packsRes.json();
       if (packsData.success && Array.isArray(packsData.comboPacks)) {
         setComboPacks(packsData.comboPacks);
       }
 
       // 2. Fetch all combo bookings
-      const bookingsRes = await fetch("/api/admin/combo-bookings", { headers });
+      const bookingsRes = await fetch("/api/admin/combo-bookings");
       const bookingsData = await bookingsRes.json();
       if (bookingsData.success && Array.isArray(bookingsData.bookings)) {
         setComboBookings(bookingsData.bookings);
@@ -91,8 +86,6 @@ export default function AdminComboPacksPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": user.email,
-          "x-user-role": user.role ?? "provider",
         },
         body: JSON.stringify({ id: packId, is_active: !currentActive }),
       });
@@ -115,10 +108,6 @@ export default function AdminComboPacksPage() {
     try {
       const res = await fetch(`/api/admin/combo-packs?id=${encodeURIComponent(packId)}`, {
         method: "DELETE",
-        headers: {
-          "x-user-email": user.email,
-          "x-user-role": user.role ?? "provider",
-        },
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Failed to delete package");
@@ -153,8 +142,6 @@ export default function AdminComboPacksPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": user.email,
-          "x-user-role": user.role ?? "provider",
         },
         body: JSON.stringify(payload),
       });
@@ -200,7 +187,7 @@ export default function AdminComboPacksPage() {
             </div>
             <h1 className="text-3xl font-black text-white">Combo Packages Administration</h1>
             <p className="text-sm text-zinc-400 mt-1">
-              Create, configure, and monitor multi-service combo bundles and real-time customer bookings.
+              Create and configure multi-service combo bundles, then review recorded customer booking requests.
             </p>
           </div>
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, getAuthenticatedUser } from "@/lib/server";
+import { createAdminClient } from "@/lib/supabase";
 import { searchApprovedProviders, toPublicProviderListing } from "@/lib/provider-search";
 
 export const runtime = "nodejs";
@@ -10,6 +11,8 @@ export async function GET(request: Request) {
     const userId = searchParams.get("user_id");
     const category = searchParams.get("category");
     const city = searchParams.get("city");
+    const queryText = searchParams.get("q");
+    const sortParam = searchParams.get("sort");
     const budgetParam = searchParams.get("budget");
     const requestedLimit = Number(searchParams.get("limit") ?? "50");
     if (!Number.isInteger(requestedLimit) || requestedLimit < 1) {
@@ -20,9 +23,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: "Budget must be a non-negative number." }, { status: 400 });
     }
     const limit = Math.min(requestedLimit, 100);
+    const offsetParam = searchParams.get("offset");
+    const offset = offsetParam === null ? 0 : Number(offsetParam);
+    if (!Number.isInteger(offset) || offset < 0) {
+      return NextResponse.json({ success: false, error: "Offset must be a non-negative integer." }, { status: 400 });
+    }
+    const sort = sortParam ?? "name";
+    if (sort !== "name" && sort !== "rating" && sort !== "price") {
+      return NextResponse.json({ success: false, error: "Sort must be one of: name, rating, price." }, { status: 400 });
+    }
 
     if (userId) {
-      const { user, error: authError, supabase } = await getAuthenticatedUser();
+      const { user, error: authError } = await getAuthenticatedUser();
       if (authError || !user) {
         return NextResponse.json({ success: false, error: "Sign in to view your provider application.", code: "AUTHENTICATION_REQUIRED" }, { status: 401 });
       }
@@ -30,7 +42,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: "You can only view your own provider application.", code: "FORBIDDEN" }, { status: 403 });
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await createAdminClient()
         .from("providers")
         .select("*")
         .eq("user_id", user.id)
@@ -47,17 +59,23 @@ export async function GET(request: Request) {
       });
     }
 
-    const supabase = await createClient();
-    const providers = await searchApprovedProviders(supabase, {
+    const supabase = createAdminClient();
+    const { providers, total } = await searchApprovedProviders(supabase, {
       ...(category && category !== "All" ? { category } : {}),
       ...(city ? { city } : {}),
+      ...(queryText ? { query: queryText } : {}),
       ...(budget !== undefined ? { budget } : {}),
+      sort,
+      offset,
       limit,
     });
 
     return NextResponse.json({
       success: true,
       providers: providers.map(toPublicProviderListing),
+      total,
+      limit,
+      offset,
     });
   } catch (err: any) {
     console.error("[GET /api/providers] unexpected error:", err);

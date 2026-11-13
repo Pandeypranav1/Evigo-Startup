@@ -2,9 +2,11 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Container } from "@/components/Container";
+import Image from "next/image";
+import Link from "next/link";
 import { useAuth, UserRole } from "@/context/AuthContext";
 import { createClient } from "@/lib/client";
+import { getDashboardPath } from "@/lib/auth-role";
 
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -51,7 +53,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), role }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send OTP");
@@ -97,7 +99,7 @@ export default function LoginPage() {
       setNotice("Login successful!");
       login(data.user);
       setTimeout(() => {
-        router.replace(role === "provider" ? "/provider/dashboard" : "/dashboard");
+        router.replace(getDashboardPath(data.user.role));
       }, 800);
     } catch (err: any) {
       setError(err.message);
@@ -162,487 +164,313 @@ export default function LoginPage() {
     }
   };
 
-  // OTP box style
-  const otpBoxStyle: React.CSSProperties = {
-    width: "44px",
-    height: "52px",
-    background: "#1a1a1a",
-    border: "1px solid rgba(255,255,255,0.12)",
-    borderRadius: 10,
-    color: "#ffffff",
-    fontSize: 22,
-    fontWeight: 700,
-    textAlign: "center",
-    outline: "none",
-  };
-
   const isOtpComplete = otp.join("").length === 6;
 
   return (
-    <main
-      className="flex-1 flex items-center justify-center py-12 min-h-[80vh]"
-      style={{
-        background: "linear-gradient(135deg, #0d0d0d 0%, #12052a 50%, #050d1a 100%)",
-      }}
-    >
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          top: "15%",
-          left: "10%",
-          width: 320,
-          height: 320,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)",
-          filter: "blur(40px)",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          bottom: "15%",
-          right: "10%",
-          width: 280,
-          height: 280,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%)",
-          filter: "blur(40px)",
-          pointerEvents: "none",
-        }}
-      />
-
-      <Container>
-        <div className="mx-auto max-w-md w-full relative z-10">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background: "linear-gradient(135deg, #8b5cf6, #06b6d4)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 22,
-                  boxShadow: "0 4px 20px rgba(139,92,246,0.4)",
-                }}
-              >
-                ✦
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 p-6">
+      {/* Main Container - Precise dimensions */}
+      <div className="w-full max-w-[1600px] h-[calc(100dvh-48px)] min-h-[680px]">
+        <div className="w-full h-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row">
+          
+          {/* Left Panel - 42% width on desktop */}
+          <div className="relative w-full lg:w-[42%] min-h-[250px] lg:min-h-full">
+            <Image
+              src="/images/districts/02_Patna.jpg"
+              alt="Bihar Tourism - Patna Golghar"
+              fill
+              className="object-cover"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/60 via-purple-800/50 to-indigo-900/60" />
+            
+            <div className="relative z-10 flex flex-col justify-between h-full p-6 lg:p-10">
+              {/* Logo and Subtitle */}
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+                    ✦
+                  </div>
+                  <div>
+                    <h1 className="text-4xl lg:text-5xl font-black text-white tracking-tight">
+                      Evigo
+                    </h1>
+                    <p className="text-purple-100 text-sm lg:text-base font-medium">
+                      Travel • Events • Stays • Local Services
+                    </p>
+                  </div>
+                </div>
               </div>
-              <span
-                style={{
-                  fontSize: 28,
-                  fontWeight: 900,
-                  background: "linear-gradient(135deg, #a78bfa, #22d3ee)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  letterSpacing: "-0.5px",
-                }}
-              >
-                Evigo
-              </span>
+
+              {/* Category Cards - Vertical layout */}
+              <div className="flex flex-col gap-3 my-4 lg:my-6">
+                <div className="bg-white/15 backdrop-blur-md rounded-xl p-4 border border-white/30 flex items-center justify-between hover:bg-white/20 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">✈️</span>
+                    <p className="text-white font-semibold text-sm lg:text-base">Travel & Tourism</p>
+                  </div>
+                  <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+                <div className="bg-white/15 backdrop-blur-md rounded-xl p-4 border border-white/30 flex items-center justify-between hover:bg-white/20 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🎉</span>
+                    <p className="text-white font-semibold text-sm lg:text-base">Events & Bookings</p>
+                  </div>
+                  <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+                <div className="bg-white/15 backdrop-blur-md rounded-xl p-4 border border-white/30 flex items-center justify-between hover:bg-white/20 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🏨</span>
+                    <p className="text-white font-semibold text-sm lg:text-base">Hotels & Venues</p>
+                  </div>
+                  <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+                <div className="bg-white/15 backdrop-blur-md rounded-xl p-4 border border-white/30 flex items-center justify-between hover:bg-white/20 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🚕</span>
+                    <p className="text-white font-semibold text-sm lg:text-base">FaabCab Transport</p>
+                  </div>
+                  <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Main Headline */}
+              <div>
+                <h2 className="text-2xl lg:text-3xl font-black text-white mb-2 lg:mb-3 leading-tight">
+                  Discover Bihar with Evigo
+                </h2>
+                <p className="text-purple-100 text-sm lg:text-base leading-relaxed">
+                  Book travel, events, stays, and local services across Bihar – all in one place.
+                </p>
+              </div>
             </div>
-            <h1 style={{ color: "#ffffff", fontSize: 22, fontWeight: 800, marginBottom: 6 }}>
-              {isProvider ? "Provider Login" : "Client Login"}
-            </h1>
-            <p style={{ color: "#9ca3af", fontSize: 14 }}>
-              {isProvider
-                ? "Access your provider dashboard"
-                : "Login to book top event services across Bihar"}
-            </p>
           </div>
 
-          {/* Glass Card */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 24,
-              padding: "32px 24px",
-              boxShadow: "0 25px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}
-          >
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                background: isProvider ? "rgba(139,92,246,0.15)" : "rgba(6,182,212,0.15)",
-                border: `1px solid ${isProvider ? "rgba(139,92,246,0.3)" : "rgba(6,182,212,0.3)"}`,
-                borderRadius: 100,
-                padding: "4px 12px",
-                marginBottom: 24,
-              }}
-            >
-              <span style={{ fontSize: 12 }}>{isProvider ? "🎪" : "👤"}</span>
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: isProvider ? "#a78bfa" : "#22d3ee",
-                }}
+          {/* Right Panel - 58% width on desktop */}
+          <div className="w-full lg:w-[58%] bg-white flex items-center justify-center p-6 lg:p-12">
+            <div className="w-full max-w-[680px]">
+              {/* Back Button */}
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium text-sm mb-8 transition-colors"
               >
-                {isProvider ? "Provider Account" : "Client Account"}
-              </span>
-            </div>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Home
+              </Link>
 
-            {step === "email" ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: "#d1d5db",
-                      marginBottom: 8,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Email Address
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <div style={{
-                      position: "absolute",
-                      left: 16,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#9ca3af",
-                      fontSize: 16,
-                      pointerEvents: "none"
-                    }}>
-                      ✉️
-                    </div>
-                    <input
-                      id="login-email-input"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && !submitting && handleSendOtp()}
-                      placeholder="name@example.com"
-                      type="email"
-                      style={{
-                        width: "100%",
-                        background: "#1a1a1a",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        borderRadius: 12,
-                        padding: "12px 16px 12px 48px",
-                        color: "#ffffff",
-                        fontSize: 16,
-                        fontWeight: 600,
-                        outline: "none",
-                        boxSizing: "border-box",
-                        transition: "all 0.2s"
-                      }}
-                      onFocus={(e) => {
-                        e.currentTarget.style.borderColor = "rgba(139,92,246,0.6)";
-                        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(139,92,246,0.1)";
-                      }}
-                      onBlur={(e) => {
-                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-                        e.currentTarget.style.boxShadow = "none";
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      background: "rgba(239,68,68,0.1)",
-                      border: "1px solid rgba(239,68,68,0.25)",
-                      borderRadius: 10,
-                      padding: "10px 14px",
-                    }}
-                  >
-                    <span style={{ fontSize: 16 }}>⚠️</span>
-                    <span style={{ color: "#fca5a5", fontSize: 13, fontWeight: 600 }}>{error}</span>
-                  </div>
-                )}
-
-                <button
-                  id="login-send-otp-btn"
-                  onClick={handleSendOtp}
-                  disabled={submitting}
-                  style={{
-                    width: "100%",
-                    padding: "13px 20px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: submitting
-                      ? "rgba(139,92,246,0.4)"
-                      : "linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)",
-                    color: "#ffffff",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    cursor: submitting ? "not-allowed" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    boxShadow: submitting ? "none" : "0 4px 20px rgba(139,92,246,0.35)",
-                    transition: "all 0.2s"
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <span
-                        style={{
-                          width: 16,
-                          height: 16,
-                          border: "2px solid rgba(255,255,255,0.3)",
-                          borderTopColor: "#fff",
-                          borderRadius: "50%",
-                          display: "inline-block",
-                          animation: "spin 0.7s linear infinite",
-                        }}
-                      />
-                      Sending OTP…
-                    </>
-                  ) : (
-                    "Send OTP →"
-                  )}
-                </button>
+              {/* Heading */}
+              <div className="mb-10">
+                <h1 className="text-[38px] lg:text-[42px] font-black text-gray-900 mb-3 leading-tight">
+                  Login or Signup
+                </h1>
+                <p className="text-[16px] lg:text-[18px] text-gray-600">
+                  Access bookings, explore destinations, and manage your services on Evigo.
+                </p>
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div
-                  style={{
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 12,
-                    padding: "12px 16px",
-                    textAlign: "center",
-                  }}
-                >
-                  <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 2 }}>
-                    OTP sent to:
-                  </p>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: "#22d3ee" }}>
-                    {email}
-                  </p>
+
+              {/* Client/Provider Selection */}
+              <div className="mb-8">
+                <div className="flex rounded-xl bg-gray-100 p-1">
+                  <button
+                    onClick={() => router.push("/login/client")}
+                    className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all ${
+                      !isProvider
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    I'm a Client
+                  </button>
+                  <button
+                    onClick={() => router.push("/login/provider")}
+                    className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all ${
+                      isProvider
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    I'm a Service Provider
+                  </button>
                 </div>
+              </div>
 
-                {notice && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      background: "rgba(16,185,129,0.1)",
-                      border: "1px solid rgba(16,185,129,0.25)",
-                      borderRadius: 10,
-                      padding: "10px 14px",
-                    }}
-                  >
-                    <span style={{ fontSize: 16 }}>✅</span>
-                    <span style={{ color: "#6ee7b7", fontSize: 13, fontWeight: 600 }}>{notice}</span>
-                  </div>
-                )}
-
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: "#d1d5db",
-                      marginBottom: 12,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      textAlign: "center"
-                    }}
-                  >
-                    ENTER 6-DIGIT OTP
-                  </label>
-                  <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
-                    {otp.map((digit, index) => (
+              {/* Form */}
+              {step === "email" ? (
+                <div className="space-y-6">
+                  <div>
+                    <label
+                      htmlFor="email"
+                      className="block text-sm font-bold text-gray-700 mb-3"
+                    >
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
                       <input
-                        key={index}
-                        ref={(el) => { inputRefs.current[index] = el; }}
-                        id={`otp-input-${index}`}
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        maxLength={6}
-                        value={digit}
-                        onChange={(e) => handleOtpChange(index, e.target.value)}
-                        onPaste={handlePaste}
-                        onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                        style={{
-                          ...otpBoxStyle,
-                          transition: "all 0.2s"
-                        }}
-                        onFocus={(e) => {
-                          e.currentTarget.style.borderColor = "rgba(6,182,212,0.6)";
-                          e.currentTarget.style.boxShadow = "0 0 0 3px rgba(6,182,212,0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-                          e.currentTarget.style.boxShadow = "none";
-                        }}
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && !submitting && handleSendOtp()}
+                        placeholder="name@example.com"
+                        className="w-full pl-12 pr-4 py-4 rounded-lg border border-gray-300 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all h-[64px]"
                       />
-                    ))}
+                    </div>
                   </div>
-                </div>
 
-                {error && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      background: "rgba(239,68,68,0.1)",
-                      border: "1px solid rgba(239,68,68,0.25)",
-                      borderRadius: 10,
-                      padding: "10px 14px",
-                    }}
-                  >
-                    <span style={{ fontSize: 16 }}>⚠️</span>
-                    <span style={{ color: "#fca5a5", fontSize: 13, fontWeight: 600 }}>{error}</span>
-                  </div>
-                )}
-
-                <button
-                  id="login-verify-otp-btn"
-                  onClick={() => handleVerifyOtp()}
-                  disabled={submitting || !isOtpComplete}
-                  style={{
-                    width: "100%",
-                    padding: "13px 20px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: submitting || !isOtpComplete
-                      ? "rgba(6,182,212,0.3)"
-                      : "linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%)",
-                    color: submitting || !isOtpComplete ? "rgba(255,255,255,0.5)" : "#ffffff",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    cursor: submitting || !isOtpComplete ? "not-allowed" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    boxShadow: submitting || !isOtpComplete ? "none" : "0 4px 20px rgba(6,182,212,0.35)",
-                    transition: "all 0.2s"
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <span
-                        style={{
-                          width: 16,
-                          height: 16,
-                          border: "2px solid rgba(255,255,255,0.3)",
-                          borderTopColor: "#fff",
-                          borderRadius: "50%",
-                          display: "inline-block",
-                          animation: "spin 0.7s linear infinite",
-                        }}
-                      />
-                      Verifying…
-                    </>
-                  ) : (
-                    "Verify & Login ✓"
+                  {error && (
+                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-4">
+                      <span className="text-red-500">⚠️</span>
+                      <span className="text-red-700 text-sm font-medium">{error}</span>
+                    </div>
                   )}
-                </button>
-                
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (resendTimer > 0 || submitting) return;
-                      handleSendOtp();
-                    }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: resendTimer > 0 ? "#6b7280" : "#a78bfa",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: resendTimer > 0 ? "not-allowed" : "pointer",
-                      padding: 0
-                    }}
-                  >
-                    {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend OTP"}
-                  </button>
 
                   <button
-                    type="button"
-                    onClick={() => {
-                      setStep("email");
-                      setOtp(["", "", "", "", "", ""]);
-                      setNotice(null);
-                      setError(null);
-                      setResendTimer(0);
-                    }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: "#9ca3af",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      padding: 0
-                    }}
+                    onClick={handleSendOtp}
+                    disabled={submitting}
+                    className="w-full py-4 px-6 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-base transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 h-[58px]"
                   >
-                    Change Email
+                    {submitting ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Sending OTP…
+                      </>
+                    ) : (
+                      "Send OTP"
+                    )}
                   </button>
                 </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                    <p className="text-sm text-gray-600 mb-1">OTP sent to:</p>
+                    <p className="text-base font-bold text-purple-600">{email}</p>
+                  </div>
 
-                <div
-                  style={{
-                    marginTop: 8,
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    background: "rgba(255,255,255,0.02)",
-                    border: "1px dashed rgba(255,255,255,0.1)",
-                    textAlign: "center",
-                  }}
-                >
-                  <p style={{ fontSize: 11, color: "#9ca3af", margin: 0 }}>
-                    💡 If no email arrives, check your <strong>Spam</strong> or <strong>Promotions</strong> folder.
-                  </p>
+                  {notice && (
+                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-4">
+                      <span className="text-green-500">✅</span>
+                      <span className="text-green-700 text-sm font-medium">{notice}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-4 text-center">
+                      ENTER 6-DIGIT OTP
+                    </label>
+                    <div className="flex justify-center gap-2">
+                      {otp.map((digit, index) => (
+                        <input
+                          key={index}
+                          ref={(el) => { inputRefs.current[index] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleOtpChange(index, e.target.value)}
+                          onPaste={handlePaste}
+                          onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                          className="w-12 h-14 text-center text-xl font-bold rounded-lg border-2 border-gray-300 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-4">
+                      <span className="text-red-500">⚠️</span>
+                      <span className="text-red-700 text-sm font-medium">{error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => handleVerifyOtp()}
+                    disabled={submitting || !isOtpComplete}
+                    className="w-full py-4 px-6 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-base transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 h-[58px]"
+                  >
+                    {submitting ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Verifying…
+                      </>
+                    ) : (
+                      "Verify & Login"
+                    )}
+                  </button>
+                  
+                  <div className="flex justify-between items-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (resendTimer > 0 || submitting) return;
+                        handleSendOtp();
+                      }}
+                      disabled={resendTimer > 0 || submitting}
+                      className="text-sm font-semibold text-purple-600 hover:text-purple-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend OTP"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep("email");
+                        setOtp(["", "", "", "", "", ""]);
+                        setNotice(null);
+                        setError(null);
+                        setResendTimer(0);
+                      }}
+                      className="text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+                    >
+                      Change Email
+                    </button>
+                  </div>
+
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                    <p className="text-xs text-gray-600">
+                      💡 If no email arrives, check your <strong>Spam</strong> or <strong>Promotions</strong> folder.
+                    </p>
+                  </div>
                 </div>
+              )}
+
+              {/* Terms and Privacy */}
+              <div className="mt-10 text-center">
+                <p className="text-xs text-gray-500">
+                  By continuing, you agree to our{" "}
+                  <Link href="/terms-and-conditions" className="text-purple-600 hover:text-purple-700 font-medium">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy-policy" className="text-purple-600 hover:text-purple-700 font-medium">
+                    Privacy Policy
+                  </Link>
+                </p>
               </div>
-            )}
+            </div>
           </div>
-
-          <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "#6b7280" }}>
-            {isProvider ? (
-              <>
-                Joining as a client?{" "}
-                <a href="/login/client" style={{ color: "#a78bfa", fontWeight: 700 }}>
-                  Client Login
-                </a>
-              </>
-            ) : (
-              <>
-                Are you a service provider?{" "}
-                <a href="/login/provider" style={{ color: "#22d3ee", fontWeight: 700 }}>
-                  Provider Login
-                </a>
-              </>
-            )}
-          </p>
         </div>
-      </Container>
-
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </main>
+      </div>
+    </div>
   );
 }

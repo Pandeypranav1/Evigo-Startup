@@ -32,40 +32,6 @@ const TOURISM_LINKS = [
   { label: "Sitamarhi", href: "/services/tourism?district=Sitamarhi" },
 ];
 
-const SOCIAL_LINKS = [
-  {
-    label: "Instagram",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-      </svg>
-    ),
-    href: "#",
-  },
-  {
-    label: "LinkedIn",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-        <rect x="2" y="9" width="4" height="12" />
-        <circle cx="4" cy="4" r="2" />
-      </svg>
-    ),
-    href: "#",
-  },
-  {
-    label: "Facebook",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-      </svg>
-    ),
-    href: "#",
-  },
-];
-
 export function Footer() {
   return (
     <footer
@@ -106,32 +72,6 @@ export function Footer() {
               with verified providers for weddings, celebrations &amp; more.
             </p>
 
-            {/* Social Links */}
-            <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-              {SOCIAL_LINKS.map((s) => (
-                <a
-                  key={s.label}
-                  href={s.href}
-                  aria-label={s.label}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 10,
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(255,255,255,0.05)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#94a3b8",
-                    textDecoration: "none",
-                    transition: "all 0.2s",
-                  }}
-                  className="hover:border-violet-500 hover:text-white"
-                >
-                  {s.icon}
-                </a>
-              ))}
-            </div>
           </div>
 
           {/* Quick Links */}

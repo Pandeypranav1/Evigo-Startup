@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedUser } from '@/lib/server';
+import { requireAdminAccess } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase';
 import { PaymentService } from '@/lib/payment/service';
 
@@ -10,12 +10,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user } = await getAuthenticatedUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
-    }
-
-    // TODO: Add admin role check
+    const authorization = await requireAdminAccess();
+    if (!authorization.authorized) return authorization.response;
 
     const { id: paymentId } = await params;
 

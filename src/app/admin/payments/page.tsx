@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/client';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { isAllowedAdminEmail } from '@/lib/admin';
 import { Button } from '@/components/Button';
 import {
   DollarSign,
@@ -46,7 +48,9 @@ interface Gateway {
 }
 
 export default function AdminPaymentsPage() {
-  const supabase = createClient();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const isAdmin = !!user?.email && isAllowedAdminEmail(user.email);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [gateways, setGateways] = useState<Gateway[]>([]);
   const [stats, setStats] = useState({
@@ -62,23 +66,29 @@ export default function AdminPaymentsPage() {
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/login/provider');
+      return;
+    }
+    if (!isAdmin) {
+      router.replace('/');
+      return;
+    }
     fetchData();
-  }, []);
+  }, [authLoading, user, isAdmin, router]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      const { data: paymentsData } = await supabase
-        .from('payments')
-        .select('*, user:profiles(id, full_name, email, phone)')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (paymentsData) {
-        setPayments(paymentsData as Payment[]);
-        calculateStats(paymentsData as Payment[]);
-      }
+      const paymentsRes = await fetch('/api/admin/payments?limit=50');
+      const paymentsData = await paymentsRes.json();
+      const paymentsList = paymentsRes.ok && paymentsData.success
+        ? (paymentsData.payments as Payment[])
+        : [];
+      setPayments(paymentsList);
+      calculateStats(paymentsList);
 
       const { data: gatewaysData } = await fetch('/api/admin/payment-gateways').then(r => r.json());
       if (gatewaysData.success) {

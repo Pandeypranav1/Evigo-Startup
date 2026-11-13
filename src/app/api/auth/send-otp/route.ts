@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { isAccountRole } from "@/lib/auth-role";
 
 // Rate limit: 1 OTP per email per 30 seconds in memory
 const rateLimit = new Map<string, number>();
@@ -11,7 +12,7 @@ function isValidEmail(email: string): boolean {
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { email } = body;
+    const { email, role } = body;
 
     if (!email || typeof email !== "string" || !email.trim()) {
       return NextResponse.json(
@@ -25,6 +26,12 @@ export async function POST(request: Request) {
     if (!isValidEmail(normalizedEmail)) {
       return NextResponse.json(
         { error: "Please enter a valid email address." },
+        { status: 400 }
+      );
+    }
+    if (!isAccountRole(role)) {
+      return NextResponse.json(
+        { error: "Select a valid account type." },
         { status: 400 }
       );
     }
@@ -52,6 +59,7 @@ export async function POST(request: Request) {
       email: normalizedEmail,
       options: {
         shouldCreateUser: true,
+        data: { account_role: role },
       },
     });
 

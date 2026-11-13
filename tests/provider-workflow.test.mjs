@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { isAuthorizedAdmin } from "../src/lib/admin.ts";
+import { getDashboardPath, resolveAccountRole } from "../src/lib/auth-role.ts";
 import {
   formatProviderSearchReply,
   getProviderMaximumPrice,
@@ -12,6 +13,8 @@ import {
   buildProviderReviewUpdate,
   isProviderAccountRole,
   NEW_PROVIDER_REGISTRATION_STATE,
+  ownsProviderResource,
+  PROVIDER_REVIEW_REQUIRED_STATUS,
 } from "../src/lib/provider-workflow.ts";
 
 const previousAllowlist = process.env.ADMIN_PROVIDER_EMAILS;
@@ -54,6 +57,23 @@ const listings = [
     rating: null,
     image_url: null,
     is_verified: false,
+    is_bookable: false,
+  },
+  {
+    id: "suspended-provider",
+    registration_status: "suspended",
+    business_name: "Suspended Catering",
+    owner_name: null,
+    category: "Catering",
+    city: "Jamui",
+    phone: null,
+    experience_years: null,
+    service_areas: ["Jamui"],
+    description: null,
+    price_range: "₹1,000",
+    rating: null,
+    image_url: null,
+    is_verified: true,
     is_bookable: false,
   },
   {
@@ -113,6 +133,20 @@ describe("provider auth and approval workflow", () => {
   it("authorizes only a verified admin allowlist email or trusted app metadata role", () => {
     assert.equal(isAuthorizedAdmin({ email: "reviewer@evigo.in", app_metadata: {} }), true);
     assert.equal(isAuthorizedAdmin({ email: "admin@example.com", app_metadata: { role: "admin" } }), true);
+    assert.equal(isAuthorizedAdmin({ email: "attacker@example.com", user_metadata: { role: "admin" } }), false);
+  });
+
+  it("keeps an existing account role instead of trusting the login form selection", () => {
+    assert.equal(resolveAccountRole("client", "provider"), "client");
+    assert.equal(resolveAccountRole("provider", "client"), "provider");
+    assert.equal(resolveAccountRole(null, "client"), "client");
+    assert.equal(resolveAccountRole(null, "provider"), "provider");
+    assert.equal(resolveAccountRole("admin", "client"), null);
+  });
+
+  it("redirects each account role to its matching dashboard", () => {
+    assert.equal(getDashboardPath("client"), "/dashboard");
+    assert.equal(getDashboardPath("provider"), "/provider/dashboard");
   });
 
   it("requires the provider role and leaves all new applications pending", () => {
@@ -130,6 +164,7 @@ describe("provider auth and approval workflow", () => {
       registration_status: "approved",
       is_verified: true,
       is_bookable: true,
+      admin_note: null,
     });
     assert.deepEqual(buildProviderReviewUpdate("reject", "Incomplete profile"), {
       registration_status: "rejected",
@@ -137,6 +172,37 @@ describe("provider auth and approval workflow", () => {
       is_bookable: false,
       admin_note: "Incomplete profile",
     });
+  });
+
+  it("suspends approved providers without bookable access and can reinstate them", () => {
+    assert.deepEqual(buildProviderReviewUpdate("suspend", "Policy violation"), {
+      registration_status: "suspended",
+      is_bookable: false,
+      admin_note: "Policy violation",
+    });
+    assert.deepEqual(buildProviderReviewUpdate("reinstate"), {
+      registration_status: "approved",
+      is_verified: true,
+      is_bookable: true,
+      admin_note: null,
+    });
+  });
+
+  it("maps each review action to the only valid current status", () => {
+    assert.deepEqual(PROVIDER_REVIEW_REQUIRED_STATUS, {
+      approve: "pending",
+      reject: "pending",
+      suspend: "approved",
+      reinstate: "suspended",
+    });
+  });
+
+  it("authorizes provider actions only for the exact resource owner", () => {
+    const ownedProviderIds = ["provider-1", "provider-2"];
+    assert.equal(ownsProviderResource(ownedProviderIds, "provider-1"), true);
+    assert.equal(ownsProviderResource(ownedProviderIds, "unrelated-provider"), false);
+    assert.equal(ownsProviderResource(ownedProviderIds, null), false);
+    assert.equal(ownsProviderResource([], "provider-1"), false);
   });
 });
 
@@ -149,12 +215,26 @@ describe("RLS-scoped provider search", () => {
   });
 
   it("returns only approved, verified, bookable listings within category, area, and budget", async () => {
-    const result = await searchApprovedProviders(fakeSupabaseClient(listings), {
+    const { providers: result } = await searchApprovedProviders(fakeSupabaseClient(listings), {
       category: "Catering",
       city: "Jhajha",
       budget: 5000,
     });
     assert.deepEqual(result.map((provider) => provider.id), ["approved-provider"]);
+  });
+
+  it("keeps explicitly test and placeholder provider records out of public listings", async () => {
+    const testVenue = {
+      ...listings[0],
+      id: "test-venue",
+      business_name: "TEST Venue & Restaurant",
+      category: "Restaurant",
+      description: "Test venue provider for search audit",
+    };
+    const { providers, total } = await searchApprovedProviders(fakeSupabaseClient([testVenue]));
+
+    assert.deepEqual(providers, []);
+    assert.equal(total, 0);
   });
 
   it("returns an explicit no-results response without inventing providers", () => {

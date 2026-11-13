@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase";
+import { isAccountRole, resolveAccountRole } from "@/lib/auth-role";
 
 export async function POST(request: Request) {
   try {
@@ -19,9 +20,14 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    if (!isAccountRole(role)) {
+      return NextResponse.json(
+        { error: "A valid account type is required." },
+        { status: 400 }
+      );
+    }
 
     const normalizedEmail = email.trim().toLowerCase();
-    const effectiveRole = role === "provider" ? "provider" : "client";
 
     // Use a server-side Supabase client with the anon key.
     // verifyOtp is a public Auth endpoint that works with the anon key.
@@ -67,25 +73,56 @@ export async function POST(request: Request) {
       );
     }
 
-    // Ensure profile row exists in public.profiles for first-time user
-    try {
-      const adminSupabase = createAdminClient();
-      const { data: existingProfile } = await adminSupabase
-        .from("profiles")
-        .select("id")
-        .eq("id", data.user.id)
-        .maybeSingle();
+    const adminSupabase = createAdminClient();
+    const { data: existingProfile, error: profileLookupError } = await adminSupabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .maybeSingle();
 
-      if (!existingProfile) {
-        await adminSupabase.from("profiles").upsert({
+    if (profileLookupError) {
+      console.error("[verify-otp] Profile lookup failed:", profileLookupError);
+      return NextResponse.json(
+        { error: "Unable to load your account profile. Please try again." },
+        { status: 500 }
+      );
+    }
+
+    let accountRole = resolveAccountRole(existingProfile?.role, role);
+    if (!accountRole) {
+      return NextResponse.json(
+        { error: "The account has an invalid role. Please contact support." },
+        { status: 500 }
+      );
+    }
+
+    if (!existingProfile) {
+      const { data: createdProfile, error: profileCreateError } = await adminSupabase
+        .from("profiles")
+        .insert({
           id: data.user.id,
           email: normalizedEmail,
-          role: effectiveRole,
+          role: accountRole,
           full_name: data.user.user_metadata?.full_name || normalizedEmail.split("@")[0],
-        });
+        })
+        .select("role")
+        .single();
+
+      if (profileCreateError) {
+        console.error("[verify-otp] Profile creation failed:", profileCreateError);
+        return NextResponse.json(
+          { error: "Unable to create your account profile. Please try again." },
+          { status: 500 }
+        );
       }
-    } catch (profErr) {
-      console.warn("[verify-otp] Profile setup warning:", profErr);
+
+      accountRole = resolveAccountRole(createdProfile.role, accountRole);
+      if (!accountRole) {
+        return NextResponse.json(
+          { error: "The account has an invalid role. Please contact support." },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
@@ -93,7 +130,7 @@ export async function POST(request: Request) {
       user: {
         id: data.user.id,
         email: data.user.email || normalizedEmail,
-        role: effectiveRole,
+        role: accountRole,
         createdAt: data.user.created_at || new Date().toISOString(),
       },
       // Return session so client can establish it

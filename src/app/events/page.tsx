@@ -1,11 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/Container";
-import { NearbyHotelsV2 } from "@/components/NearbyHotelsV2";
 import {
     CATEGORY_IMAGE,
     CATEGORY_TAGLINE,
-    EVENT_VENUES,
     SERVICE_CATEGORIES,
 } from "@/lib/constants";
 
@@ -18,7 +16,7 @@ const CATEGORY_ICON: Record<string, string> = {
 };
 
 export const metadata = {
-    title: "Events",
+    title: "Events & Services",
     description:
         "Plan your event with trusted services, venues and local partners across Bihar.",
 };
@@ -106,8 +104,7 @@ export default function EventsPage() {
                                 Trusted hotels &amp; venues
                             </h2>
                             <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600">
-                                Jamui&apos;s verified hotel partners, with their existing
-                                services and booking options.
+                                Browse currently approved, verified, bookable venue providers. Listings do not confirm date-specific availability.
                             </p>
                         </div>
                         <Link
@@ -118,65 +115,17 @@ export default function EventsPage() {
                         </Link>
                     </div>
 
-                    <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                        {EVENT_VENUES.map((venue) => (
-                            <Link
-                                key={venue.id}
-                                href={`/hotels#${venue.id}`}
-                                className="group overflow-hidden rounded-lg border border-zinc-200 bg-white transition hover:border-emerald-700/50 hover:shadow-lg"
-                            >
-                                <div className="relative aspect-[16/10] bg-zinc-100">
-                                    <Image
-                                        src={venue.images[0]}
-                                        alt={venue.name}
-                                        fill
-                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                                        className="object-cover transition duration-500 group-hover:scale-105"
-                                    />
-                                    <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-900 shadow">
-                                        Verified partner
-                                    </span>
-                                </div>
-                                <div className="p-4">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <h3 className="font-black text-zinc-950">{venue.name}</h3>
-                                            <p className="mt-1 text-sm text-zinc-600">{venue.location}</p>
-                                        </div>
-                                        {venue.googleRating && (
-                                            <span className="shrink-0 rounded bg-amber-50 px-2 py-1 text-sm font-bold text-amber-800">
-                                                ★ {venue.googleRating.toFixed(1)}
-                                            </span>
-                                        )}
-                                    </div>
-                                    {venue.priceRange && (
-                                        <p className="mt-3 text-sm font-bold text-zinc-800">
-                                            {venue.priceRange}
-                                        </p>
-                                    )}
-                                    <p className="mt-2 line-clamp-2 text-sm leading-5 text-zinc-600">
-                                        {venue.description}
-                                    </p>
-                                    <p className="mt-3 text-xs font-medium text-zinc-500">
-                                        {venue.services.slice(0, 3).join(" · ")}
-                                    </p>
-                                    <span className="mt-4 inline-flex text-sm font-bold text-emerald-800">
-                                        View hotel &amp; booking options
-                                        <span className="ml-1" aria-hidden="true">→</span>
-                                    </span>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-
-                    <div className="mt-10 border-t border-zinc-200 pt-8">
-                        <h3 className="text-xl font-black text-zinc-950">Find hotels near you</h3>
-                        <p className="mt-2 text-sm text-zinc-600">
-                            Search existing partner recommendations by Bihar city or your current location.
+                    <div className="mt-6 rounded-xl border border-zinc-200 bg-white p-6 sm:p-8">
+                        <h3 className="text-xl font-black text-zinc-950">Browse current venue listings</h3>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+                            The directory shows provider records that are approved, verified, and accepting booking requests. Availability is confirmed by the provider after a request is submitted.
                         </p>
-                        <div className="mt-5">
-                            <NearbyHotelsV2 />
-                        </div>
+                        <Link
+                            href="/hotels"
+                            className="mt-5 inline-flex rounded-lg bg-emerald-800 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-900"
+                        >
+                            View hotels &amp; venues <span className="ml-2" aria-hidden="true">→</span>
+                        </Link>
                     </div>
                 </Container>
             </section>

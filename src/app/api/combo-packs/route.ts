@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
-import { ComboPack } from "@/lib/combo";
 
 export const runtime = "nodejs";
 
@@ -39,21 +38,20 @@ export async function GET(request: Request) {
     if (error) {
       console.warn("[GET /api/combo-packs] DB query error:", error);
       return NextResponse.json({
-        success: true,
-        comboPacks: [],
-      });
+        success: false,
+        error: "Combo packages are temporarily unavailable.",
+      }, { status: 503 });
     }
 
     return NextResponse.json({
       success: true,
       comboPacks: dbPacks || [],
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[GET /api/combo-packs] Error:", err);
     return NextResponse.json({
-      success: true,
-      comboPacks: [],
-      error: err?.message,
-    });
+      success: false,
+      error: "Combo packages are temporarily unavailable.",
+    }, { status: 500 });
   }
 }

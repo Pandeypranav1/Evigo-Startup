@@ -1,30 +1,34 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
-import { isAllowedAdminEmail } from "@/lib/admin";
+import { getAuthenticatedUser } from "@/lib/server";
+import { isAuthorizedAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 
-function authorizeAdmin(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const email =
-    request.headers.get("x-user-email") ??
-    request.headers.get("x-admin-email") ??
-    searchParams.get("user_email") ??
-    "";
-  const role =
-    request.headers.get("x-user-role") ??
-    request.headers.get("x-role") ??
-    searchParams.get("user_role") ??
-    "";
-
-  if (!email || role === "client" || !isAllowedAdminEmail(email)) {
-    throw new Error("Unauthorized admin access");
+async function authorizeAdmin() {
+  const { user, error } = await getAuthenticatedUser();
+  if (error) {
+    console.warn("[admin/combo-bookings] Session verification failed:", error.code);
   }
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "A valid signed-in session is required." },
+      { status: 401 }
+    );
+  }
+  if (!isAuthorizedAdmin(user)) {
+    return NextResponse.json(
+      { success: false, error: "This account is not authorized to review combo bookings." },
+      { status: 403 }
+    );
+  }
+  return null;
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    authorizeAdmin(request);
+    const authorizationResponse = await authorizeAdmin();
+    if (authorizationResponse) return authorizationResponse;
 
     const supabase = createAdminClient();
     const { data: bookings, error } = await supabase
@@ -55,11 +59,11 @@ export async function GET(request: Request) {
       bookings: allBookings,
       summary,
     });
-  } catch (err: any) {
-    const isAuth = err?.message?.includes("Unauthorized");
+  } catch (err: unknown) {
+    console.error("[GET /api/admin/combo-bookings] Request failed:", err);
     return NextResponse.json(
-      { success: false, error: err?.message || "Admin authorization failed" },
-      { status: isAuth ? 403 : 500 }
+      { success: false, error: "Unable to load combo bookings." },
+      { status: 500 }
     );
   }
 }
