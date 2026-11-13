@@ -5,10 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { Container } from "@/components/Container";
 import { SERVICE_CATEGORIES, CATEGORY_IMAGE, EVENT_VENUES } from "@/lib/constants";
-import type { ServiceCategory, EventVenue } from "@/lib/constants";
-import type { DemoProvider } from "@/lib/demoStore";
-import { getDemoUser, saveDemoBooking } from "@/lib/demoStore";
+import type { ServiceCategory } from "@/lib/constants";
+import { useAuth } from "@/context/AuthContext";
 import { getProviderStartingPrice } from "@/lib/provider-search";
+import { useRouter } from "next/navigation";
 
 /* ─── Price bands ─── */
 const PRICE_BANDS = [
@@ -19,45 +19,154 @@ const PRICE_BANDS = [
   { label: "₹50k+", min: 50000, max: Infinity },
 ];
 
-/* ─── Hotel-venue price parser (lowest price from range) ─── */
-function parseLowestPrice(range?: string): number {
-  if (!range) return 1500;
-  // e.g. "₹800–₹2,500/night" → 800
-  const match = range.replace(/[₹,]/g, "").match(/^(\d+)/);
-  return match ? parseInt(match[1]) : 1500;
-}
+type PublicProvider = {
+  id: string;
+  ownerName: string;
+  businessName: string;
+  category: string;
+  phone: string;
+  city: string;
+  serviceAreas: string[];
+  startingPrice: number | null;
+  priceRange: string | null;
+  rating: number | null;
+  experienceYears: number;
+  description: string;
+  imageUrl: string;
+};
 
-/* ─── Booking Modal (for DemoProviders) ─── */
+type ProviderSort = "name" | "rating" | "price";
+
+const RESULTS_PER_PAGE = 12;
+
+type AvailableService = {
+  id: string;
+  service_name: string;
+  description: string | null;
+  price: number | null;
+  category: string | null;
+};
+
+/* ─── Booking Modal ─── */
 function BookingModal({
   provider,
   onClose,
 }: {
-  provider: DemoProvider | null;
+  provider: PublicProvider | null;
   onClose: () => void;
 }) {
+  const { user, role } = useAuth();
+  const router = useRouter();
   const [eventDate, setEventDate] = useState("");
   const [location, setLocation] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [availableServices, setAvailableServices] = useState<AvailableService[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!provider) { setEventDate(""); setLocation(""); setNotes(""); setDone(false); }
+    let active = true;
+    if (!provider) {
+      setEventDate("");
+      setLocation("");
+      setName("");
+      setPhone("");
+      setNotes("");
+      setDone(false);
+      setError(null);
+      setAvailableServices([]);
+      setSelectedServiceId("");
+      setServicesError(null);
+      setServicesLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setAvailableServices([]);
+    setSelectedServiceId("");
+    setServicesError(null);
+    setServicesLoading(true);
+
+    void fetch(`/api/public/services?provider_id=${encodeURIComponent(provider.id)}`)
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok || !result.success || !Array.isArray(result.services)) {
+          throw new Error(result.error || "Available services could not be loaded.");
+        }
+        if (active) {
+          setAvailableServices(result.services);
+          setSelectedServiceId(result.services[0]?.id || "");
+        }
+      })
+      .catch((loadError) => {
+        if (active) {
+          setServicesError(loadError instanceof Error ? loadError.message : "Available services could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (active) setServicesLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [provider]);
 
   if (!provider) return null;
 
-  const confirm = () => {
-    const u = getDemoUser();
-    saveDemoBooking({
-      providerId: provider.id,
-      providerOwnerUid: provider.ownerUid,
-      clientUid: u?.uid ?? "guest",
-      clientPhone: u?.phone ?? "",
-      eventDate,
-      location,
-      notes,
-    });
-    setDone(true);
+  const confirm = async () => {
+    setError(null);
+    if (submitting) return;
+    if (!user || role !== "client") {
+      router.push("/login/client");
+      return;
+    }
+    if (!eventDate || !location.trim() || !name.trim() || !phone.trim()) {
+      setError("Enter the event date, location, name, and phone number.");
+      return;
+    }
+    const selectedService = availableServices.find((service) => service.id === selectedServiceId);
+    if (!selectedService) {
+      setError("Select an available service.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider_id: provider.id,
+          provider_uuid: provider.id,
+          service_id: selectedService.id,
+          service_type: selectedService.service_name,
+          event_date: eventDate,
+          customer_name: name.trim(),
+          customer_phone: phone.trim(),
+          customer_email: user.email,
+          city: location.trim(),
+          message: notes.trim() || null,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Unable to submit the booking request.");
+      }
+      setDone(true);
+    } catch (submitError) {
+      console.error("[Explore] Booking request failed:", submitError);
+      setError(submitError instanceof Error ? submitError.message : "Unable to submit the booking request.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -72,7 +181,7 @@ function BookingModal({
             <div className="text-5xl">✅</div>
             <div className="text-lg font-black text-zinc-900 mt-3">Booking Requested!</div>
             <div className="text-sm text-zinc-500 mt-1.5">
-              Your request has been sent to <strong>{provider.businessName}</strong>.
+              Your request for <strong>{provider.businessName}</strong> has been recorded and is awaiting provider confirmation.
             </div>
             <button onClick={onClose} className="mt-5 w-full py-3 rounded-xl text-sm font-bold text-white cursor-pointer" style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", border: "none" }}>
               Close
@@ -84,6 +193,29 @@ function BookingModal({
             <div className="text-xs sm:text-[13px] text-zinc-500 mt-0.5 mb-5">{provider.category} · {provider.city}</div>
             <div className="flex flex-col gap-3.5">
               <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Available service</span>
+                <select
+                  value={selectedServiceId}
+                  onChange={(event) => setSelectedServiceId(event.target.value)}
+                  disabled={servicesLoading || availableServices.length === 0}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:bg-zinc-100"
+                >
+                  <option value="">
+                    {servicesLoading ? "Loading available services…" : "Select a service"}
+                  </option>
+                  {availableServices.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.service_name}{service.price !== null ? ` — ₹${Number(service.price).toLocaleString("en-IN")}` : ""}
+                    </option>
+                  ))}
+                </select>
+                {servicesError ? (
+                  <span role="alert" className="text-xs font-semibold text-red-600">{servicesError}</span>
+                ) : !servicesLoading && availableServices.length === 0 ? (
+                  <span className="text-xs text-zinc-500">This provider has no available services right now.</span>
+                ) : null}
+              </label>
+              <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Event Date</span>
                 <input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
               </label>
@@ -92,14 +224,23 @@ function BookingModal({
                 <input value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Wedding Hall, Patna" className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
               </label>
               <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Your Name</span>
+                <input value={name} onChange={e => setName(e.target.value)} autoComplete="name" className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Phone Number</span>
+                <input value={phone} onChange={e => setPhone(e.target.value)} type="tel" autoComplete="tel" className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
+              </label>
+              <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Notes (optional)</span>
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Any special requirements..." className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none resize-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
               </label>
             </div>
+            {error && <p role="alert" className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
             <div className="flex gap-3 mt-5">
               <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-zinc-200 bg-white text-sm font-bold text-zinc-600 cursor-pointer">Cancel</button>
-              <button onClick={confirm} disabled={!eventDate || !location} className="flex-1 py-2.5 rounded-xl border-none text-sm font-bold text-white cursor-pointer" style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", opacity: (!eventDate || !location) ? 0.45 : 1 }}>
-                Confirm Booking
+              <button onClick={confirm} disabled={submitting || servicesLoading || !selectedServiceId} className="flex-1 py-2.5 rounded-xl border-none text-sm font-bold text-white cursor-pointer" style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", opacity: submitting || servicesLoading || !selectedServiceId ? 0.45 : 1 }}>
+                {submitting ? "Submitting…" : "Submit Request"}
               </button>
             </div>
           </>
@@ -110,7 +251,7 @@ function BookingModal({
 }
 
 /* ─── Provider Card (DemoProvider) ─── */
-function ProviderCard({ provider, onBook }: { provider: DemoProvider; onBook: (p: DemoProvider) => void }) {
+function ProviderCard({ provider, onBook }: { provider: PublicProvider; onBook: (p: PublicProvider) => void }) {
   const [imgError, setImgError] = useState(false);
   const imgSrc = provider.imageUrl && !imgError ? provider.imageUrl : CATEGORY_IMAGE[provider.category as keyof typeof CATEGORY_IMAGE] ?? "/evigo-hero.png";
 
@@ -134,7 +275,9 @@ function ProviderCard({ provider, onBook }: { provider: DemoProvider; onBook: (p
           {provider.experienceYears > 0 && <span>⭐ {provider.experienceYears} yrs</span>}
         </div>
         <div className="mt-2 text-[15px] font-black grad-text">
-          ₹{provider.startingPrice.toLocaleString("en-IN")}+
+          {provider.startingPrice === null
+            ? "Contact for pricing"
+            : `₹${provider.startingPrice.toLocaleString("en-IN")}+`}
         </div>
         {provider.description && (
           <div className="mt-2 text-xs text-zinc-500 leading-relaxed line-clamp-2">
@@ -147,107 +290,6 @@ function ProviderCard({ provider, onBook }: { provider: DemoProvider; onBook: (p
           </button>
           {provider.phone && (
             <a href={`tel:${provider.phone}`} className="flex-1 py-2.5 rounded-xl border border-zinc-200 bg-white text-[13px] font-bold text-zinc-600 no-underline text-center transition-colors hover:bg-zinc-50">
-              📞 Call
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Hotel Venue Card ─── */
-function HotelVenueCard({ venue }: { venue: EventVenue }) {
-  const [imgIdx, setImgIdx] = useState(0);
-  const [imgError, setImgError] = useState(false);
-  const imgSrc = imgError ? "/evigo-hero.png" : venue.images[imgIdx];
-
-  return (
-    <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_48px_rgba(6,182,212,0.15)] hover:border-cyan-300">
-      {/* Image with carousel dots */}
-      <div className="relative aspect-[16/10] overflow-hidden bg-zinc-100">
-        <Image
-          src={imgSrc}
-          alt={venue.name}
-          fill
-          className="object-cover transition-all duration-500"
-          sizes="(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          onError={() => setImgError(true)}
-        />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 55%)" }} />
-        {/* Category badge */}
-        <div className="absolute top-3 left-3 flex gap-1.5">
-          <span className="bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-[11px] font-bold text-zinc-600">🏨 Restaurant</span>
-          <span className="bg-cyan-500/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-[11px] font-bold text-white">✓ Verified</span>
-        </div>
-        {/* Rating */}
-        <div className="absolute top-3 right-3">
-          <span className="bg-amber-400/95 rounded-full px-2 py-0.5 text-[11px] font-black text-zinc-900">
-            ★ {venue.googleRating?.toFixed(1)}
-          </span>
-        </div>
-        {/* Image carousel dots */}
-        {venue.images.length > 1 && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {venue.images.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setImgIdx(i)}
-                className="rounded-full transition-all duration-200 cursor-pointer border-none"
-                style={{
-                  width: i === imgIdx ? 18 : 6,
-                  height: 6,
-                  background: i === imgIdx ? "#fff" : "rgba(255,255,255,0.5)",
-                }}
-              />
-            ))}
-          </div>
-        )}
-        {/* Arrow nav */}
-        <button
-          className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center text-sm cursor-pointer border-none hover:bg-black/60 transition"
-          onClick={() => setImgIdx((imgIdx - 1 + venue.images.length) % venue.images.length)}
-        >‹</button>
-        <button
-          className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center text-sm cursor-pointer border-none hover:bg-black/60 transition"
-          onClick={() => setImgIdx((imgIdx + 1) % venue.images.length)}
-        >›</button>
-      </div>
-
-      {/* Body */}
-      <div className="p-4">
-        <div className="text-[15px] font-black text-zinc-900">{venue.name}</div>
-        <div className="text-xs text-zinc-500 mt-0.5">
-          📍 {venue.location} · {venue.reviewCount} reviews
-        </div>
-        {venue.description && (
-          <div className="mt-2 text-xs text-zinc-500 leading-relaxed line-clamp-2">{venue.description}</div>
-        )}
-        {/* Safety badges */}
-        <div className="flex flex-wrap gap-1.5 mt-2.5">
-          {venue.safetyFeatures.slice(0, 2).map(f => (
-            <span key={f} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              ✓ {f}
-            </span>
-          ))}
-        </div>
-        {/* Price */}
-        {venue.priceRange && (
-          <div className="mt-2 text-[13px] font-black" style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            {venue.priceRange}
-          </div>
-        )}
-        {/* Actions */}
-        <div className="flex gap-2 mt-3.5">
-          <Link
-            href={`/hotels#${venue.id}`}
-            className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white no-underline text-center cursor-pointer transition-opacity hover:opacity-90"
-            style={{ background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", boxShadow: "0 2px 10px rgba(139,92,246,0.3)" }}
-          >
-            Explore →
-          </Link>
-          {venue.phone && (
-            <a href={`tel:${venue.phone}`} className="flex-1 py-2.5 rounded-xl border border-zinc-200 bg-white text-[13px] font-bold text-zinc-600 no-underline text-center transition-colors hover:bg-zinc-50">
               📞 Call
             </a>
           )}
@@ -283,77 +325,144 @@ function EmptyState({ category }: { category: string }) {
 export default function ExplorePage() {
   const [category, setCategory] = useState<ServiceCategory | "All">("All");
   const [locationFilter, setLocationFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<ProviderSort>("name");
+  const [page, setPage] = useState(1);
   const [priceBand, setPriceBand] = useState(0);
-  const [providers, setProviders] = useState<DemoProvider[]>([]);
+  const [providers, setProviders] = useState<PublicProvider[]>([]);
+  const [loading, setLoading] = useState(true);
   const [providersError, setProvidersError] = useState<string | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<DemoProvider | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<PublicProvider | null>(null);
+
+  useEffect(() => {
+    const requestedCategory = new URLSearchParams(window.location.search).get("category");
+    const match = SERVICE_CATEGORIES.find((serviceCategory) => serviceCategory === requestedCategory);
+    if (match) setCategory(match);
+  }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [category, locationFilter, searchQuery, priceBand, sortBy]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const response = await fetch("/api/providers");
+        const response = await fetch("/api/providers?limit=100");
         const payload = await response.json();
         if (!response.ok || !payload?.success) {
           throw new Error(payload?.error || "Provider listings are temporarily unavailable.");
         }
         const apiProviders = Array.isArray(payload?.providers) ? payload.providers : [];
 
-        const mapped = apiProviders.map((provider: any) => ({
+        const mapped = apiProviders.map((provider: any) => {
+          const ratingValue = provider.rating === null || provider.rating === undefined
+            ? null
+            : Number(provider.rating);
+
+          return {
           id: provider.id,
-          ownerUid: provider.user_id ?? provider.owner_name ?? provider.id,
-          ownerName: provider.owner_name ?? "Evigo Partner",
-          businessName: provider.business_name ?? "Evigo Partner",
-          category: provider.category ?? "Catering",
+          ownerName: provider.owner_name ?? "",
+          businessName: provider.business_name ?? "Provider listing",
+          category: provider.category ?? "",
           phone: provider.phone ?? "",
           city: provider.city ?? "",
-          startingPrice: getProviderStartingPrice(provider.price_range ?? null) ?? 0,
+          serviceAreas: Array.isArray(provider.service_areas)
+            ? provider.service_areas.filter((area: unknown): area is string => typeof area === "string")
+            : [],
+          startingPrice: getProviderStartingPrice(provider.price_range ?? null),
+          priceRange: provider.price_range ?? null,
+          rating: ratingValue !== null && Number.isFinite(ratingValue) ? ratingValue : null,
           experienceYears: Number(provider.experience_years ?? 0),
           description: provider.description ?? "",
           imageUrl: provider.image_url ?? "",
           createdAt: new Date(provider.created_at ?? Date.now()).getTime(),
           isActive: true,
+          };
+        });
+
+        const staticVenueProviders: PublicProvider[] = EVENT_VENUES.map((venue) => ({
+          id: venue.id,
+          ownerName: "Verified Partner",
+          businessName: venue.name,
+          category: "Restaurant",
+          phone: venue.phone ?? "",
+          city: venue.city,
+          serviceAreas: [venue.city, "Jamui", "Bihar"],
+          startingPrice: getProviderStartingPrice(venue.priceRange ?? null),
+          priceRange: venue.priceRange ?? null,
+          rating: venue.googleRating ?? null,
+          experienceYears: 5,
+          description: venue.description ?? "",
+          imageUrl: venue.images[0] ?? "",
         }));
 
-        setProviders(mapped);
+        const combined = [...mapped];
+        for (const venue of staticVenueProviders) {
+          if (!combined.some((p) => p.businessName.toLowerCase() === venue.businessName.toLowerCase())) {
+            combined.push(venue);
+          }
+        }
+
+        setProviders(combined);
         setProvidersError(null);
       } catch (error) {
         console.error("[Explore] Failed to load provider listings:", error);
         setProviders([]);
         setProvidersError("Provider listings are temporarily unavailable. Please try again later.");
+      } finally {
+        setLoading(false);
       }
     };
 
     void load();
   }, []);
 
-  /* ─── Filter DemoProviders ─── */
+  /* ─── Filter, sort & paginate public provider listings ─── */
   const filteredProviders = useMemo(() => {
     const band = PRICE_BANDS[priceBand];
-    return providers.filter(p => {
-      if (category !== "All" && category !== "Restaurant" && p.category !== category) return false;
-      if (category === "Restaurant") return false; // Hotels handle Restaurant tab
-      if (locationFilter && !p.city.toLowerCase().includes(locationFilter.toLowerCase())) return false;
-      if (p.startingPrice < band.min || p.startingPrice >= band.max) return false;
+    const query = searchQuery.trim().toLowerCase();
+    const location = locationFilter.trim().toLowerCase();
+
+    const matched = providers.filter(p => {
+      if (category !== "All" && p.category !== category) return false;
+      if (location &&
+        !p.city.toLowerCase().includes(location) &&
+        !p.serviceAreas.some((area) => area.toLowerCase().includes(location))
+      ) return false;
+      if (query &&
+        ![p.businessName, p.ownerName, p.description, p.city, p.category, ...p.serviceAreas]
+          .some((field) => field.toLowerCase().includes(query))
+      ) return false;
+      if (priceBand > 0 && (
+        p.startingPrice === null ||
+        p.startingPrice < band.min ||
+        p.startingPrice >= band.max
+      )) return false;
       return true;
     });
-  }, [providers, category, locationFilter, priceBand]);
 
-  /* ─── Filter Hotels (EVENT_VENUES) ─── */
-  const filteredHotels = useMemo(() => {
-    const showHotels = category === "All" || category === "Restaurant";
-    if (!showHotels) return [];
-    const band = PRICE_BANDS[priceBand];
-    return EVENT_VENUES.filter(h => {
-      if (locationFilter && !h.location.toLowerCase().includes(locationFilter.toLowerCase()) && !h.city.toLowerCase().includes(locationFilter.toLowerCase())) return false;
-      const lowestPrice = parseLowestPrice(h.priceRange);
-      // Hotels show in "Any Price" and "Under ₹5,000" bands (typical room rates)
-      if (band.min > 0 && lowestPrice < band.min) return false;
-      if (lowestPrice >= band.max) return false;
-      return true;
+    matched.sort((a, b) => {
+      if (sortBy === "rating") {
+        const ratingDiff = (b.rating ?? -1) - (a.rating ?? -1);
+        if (ratingDiff !== 0) return ratingDiff;
+      } else if (sortBy === "price") {
+        const priceA = a.startingPrice ?? Number.POSITIVE_INFINITY;
+        const priceB = b.startingPrice ?? Number.POSITIVE_INFINITY;
+        if (priceA !== priceB) return priceA - priceB;
+      }
+      return a.businessName.localeCompare(b.businessName);
     });
-  }, [category, locationFilter, priceBand]);
 
-  const totalResults = filteredProviders.length + filteredHotels.length;
+    return matched;
+  }, [providers, category, locationFilter, searchQuery, priceBand, sortBy]);
+
+  const totalResults = filteredProviders.length;
+  const totalPages = Math.max(1, Math.ceil(totalResults / RESULTS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const pagedProviders = filteredProviders.slice(
+    (safePage - 1) * RESULTS_PER_PAGE,
+    safePage * RESULTS_PER_PAGE
+  );
 
   return (
     <main className="flex-1 pb-16 sm:pb-20">
@@ -370,7 +479,7 @@ export default function ExplorePage() {
               </span>
             </h1>
             <p className="text-sm sm:text-[15px] text-zinc-500 mt-3 max-w-md mx-auto leading-relaxed">
-              Browse verified event professionals and hotel partners across Bihar. Real people, real services.
+              Browse approved, verified, bookable service providers with listings from Evigo.
             </p>
           </div>
         </Container>
@@ -395,7 +504,18 @@ export default function ExplorePage() {
             <input
               value={locationFilter}
               onChange={e => setLocationFilter(e.target.value)}
-              placeholder="City or district, e.g. Jamui"
+              placeholder="City, district or area, e.g. Jamui"
+              className="px-3 py-2 rounded-xl border border-zinc-200 text-[13px] font-semibold text-zinc-900 outline-none bg-zinc-50"
+            />
+          </div>
+
+          {/* Keyword search */}
+          <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
+            <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wide">Search</label>
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Name, service or keyword"
               className="px-3 py-2 rounded-xl border border-zinc-200 text-[13px] font-semibold text-zinc-900 outline-none bg-zinc-50"
             />
           </div>
@@ -406,6 +526,17 @@ export default function ExplorePage() {
             <select value={priceBand} onChange={e => setPriceBand(Number(e.target.value))}
               className="px-3 py-2 rounded-xl border border-zinc-200 text-[13px] font-semibold text-zinc-900 outline-none bg-zinc-50 cursor-pointer">
               {PRICE_BANDS.map((b, i) => <option key={i} value={i}>{b.label}</option>)}
+            </select>
+          </div>
+
+          {/* Sort */}
+          <div className="flex flex-col gap-1 flex-1 min-w-[130px]">
+            <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wide">Sort By</label>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as ProviderSort)}
+              className="px-3 py-2 rounded-xl border border-zinc-200 text-[13px] font-semibold text-zinc-900 outline-none bg-zinc-50 cursor-pointer">
+              <option value="name">Name (A–Z)</option>
+              <option value="rating">Top Rated</option>
+              <option value="price">Price: Low to High</option>
             </select>
           </div>
 
@@ -423,7 +554,7 @@ export default function ExplorePage() {
               <button key={c} onClick={() => setCategory(c as ServiceCategory | "All")}
                 className="px-4 py-1.5 rounded-full text-[13px] font-bold cursor-pointer transition-all duration-200"
                 style={{ border: active ? "none" : "1px solid #e4e4e7", background: active ? "linear-gradient(135deg,#8b5cf6,#06b6d4)" : "#fff", color: active ? "#fff" : "#52525b", boxShadow: active ? "0 2px 10px rgba(139,92,246,0.3)" : "none" }}>
-                {c === "Restaurant" ? "🏨 Restaurant" : c}
+                {c}
               </button>
             );
           })}
@@ -435,42 +566,54 @@ export default function ExplorePage() {
           </p>
         )}
 
-        {/* ── Results: Hotel Venue Cards (when All or Restaurant selected) ── */}
-        {filteredHotels.length > 0 && (
-          <>
-            {category === "All" && (
-              <div className="mb-4 flex items-center gap-3">
-                <div className="text-xs font-black text-zinc-500 uppercase tracking-widest">Hotel & Restaurant Partners</div>
-                <div className="flex-1 h-px bg-zinc-100" />
-              </div>
-            )}
-            <div className="evigo-explore-grid mb-8">
-              {filteredHotels.map(h => (
-                <HotelVenueCard key={h.id} venue={h} />
-              ))}
-            </div>
-          </>
-        )}
-
         {/* ── Results: Provider Cards ── */}
-        {filteredProviders.length > 0 && (
+        {pagedProviders.length > 0 && (
           <>
-            {category === "All" && filteredHotels.length > 0 && (
-              <div className="mb-4 flex items-center gap-3">
-                <div className="text-xs font-black text-zinc-500 uppercase tracking-widest">Service Providers</div>
-                <div className="flex-1 h-px bg-zinc-100" />
-              </div>
-            )}
             <div className="evigo-explore-grid">
-              {filteredProviders.map(p => (
+              {pagedProviders.map(p => (
                 <ProviderCard key={p.id} provider={p} onBook={setSelectedProvider} />
               ))}
             </div>
+
+            {/* ── Pagination ── */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={safePage <= 1}
+                  className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-[13px] font-bold text-zinc-600 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50"
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    onClick={() => setPage(pageNumber)}
+                    className="w-9 h-9 rounded-xl text-[13px] font-bold cursor-pointer transition-colors"
+                    style={
+                      pageNumber === safePage
+                        ? { background: "linear-gradient(135deg,#8b5cf6,#06b6d4)", color: "#fff", border: "none" }
+                        : { background: "#fff", color: "#52525b", border: "1px solid #e4e4e7" }
+                    }
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  disabled={safePage >= totalPages}
+                  className="px-4 py-2 rounded-xl border border-zinc-200 bg-white text-[13px] font-bold text-zinc-600 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </>
         )}
 
         {/* ── Empty State ── */}
-        {totalResults === 0 && !providersError && <EmptyState category={category} />}
+        {loading && <p role="status" className="py-12 text-center text-sm font-semibold text-zinc-500">Loading provider listings…</p>}
+        {totalResults === 0 && !loading && !providersError && <EmptyState category={category} />}
       </Container>
 
       <BookingModal provider={selectedProvider} onClose={() => setSelectedProvider(null)} />

@@ -1,3 +1,4 @@
+
 // ============================================================
 // Razorpay Gateway Adapter
 // ============================================================
@@ -96,13 +97,9 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
 
         checkout_data: {
           key: this.keyId,
-
           order_id: order.id,
-
           amount: order.amount,
-
           currency: order.currency,
-
           name: 'Evigo',
 
           description: params.booking_id
@@ -123,14 +120,29 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
         },
       };
     } catch (error: any) {
+      // Log diagnostic details only. Never log API credentials.
+      const gatewayError = error?.error ?? {};
+
+      const diagnostic = {
+        statusCode: error?.statusCode,
+        message: error?.message,
+        code: gatewayError?.code,
+        description: gatewayError?.description,
+        field: gatewayError?.field,
+        source: gatewayError?.source,
+        reason: gatewayError?.reason,
+        bookingId: params.booking_id,
+      };
+
       console.error(
         '[RazorpayAdapter] createOrder error:',
-        error
+        diagnostic
       );
 
       return {
         success: false,
         error:
+          gatewayError?.description ||
           error?.message ||
           'Failed to create Razorpay order',
       };
@@ -162,11 +174,8 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
 
       return {
         success: true,
-
         status,
-
-        gateway_payment_id:
-          order.receipt,
+        gateway_payment_id: order.receipt,
 
         paid_amount: order.amount
           ? Number(order.amount) / 100
@@ -195,10 +204,7 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
     params: VerifyPaymentParams
   ): Promise<VerifyPaymentResult> {
     try {
-      // --------------------------------------------------------
-      // Verify Razorpay checkout signature
-      // --------------------------------------------------------
-
+      // Verify Razorpay checkout signature.
       if (params.signature) {
         const generatedSignature = crypto
           .createHmac('sha256', this.keySecret)
@@ -216,10 +222,7 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
         }
       }
 
-      // --------------------------------------------------------
-      // Fetch actual Razorpay payment
-      // --------------------------------------------------------
-
+      // Fetch the actual Razorpay payment.
       const payment =
         await this.instance.payments.fetch(
           params.gateway_payment_id!
@@ -239,9 +242,7 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
 
       return {
         success: true,
-
         status,
-
         gateway_payment_id: payment.id,
       };
     } catch (error: any) {
@@ -269,7 +270,6 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
   ): Promise<ProcessWebhookResult> {
     try {
       const payload = event.payload;
-
       const eventType = payload?.event;
 
       const paymentEntity =
@@ -278,82 +278,39 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
       const refundEntity =
         payload?.payload?.refund?.entity;
 
-      // --------------------------------------------------------
-      // Log webhook event
-      // --------------------------------------------------------
-
       console.log('[RazorpayAdapter] Webhook received:', {
         eventType,
-        razorpayPaymentId:
-          paymentEntity?.id || null,
-        razorpayOrderId:
-          paymentEntity?.order_id || null,
+        razorpayPaymentId: paymentEntity?.id || null,
+        razorpayOrderId: paymentEntity?.order_id || null,
       });
 
       let gatewayPaymentId: string | undefined;
-
       let status: PaymentStatus = 'pending';
-
-      // --------------------------------------------------------
-      // PAYMENT CAPTURED
-      // --------------------------------------------------------
 
       switch (eventType) {
         case 'payment.captured': {
-          gatewayPaymentId =
-            paymentEntity?.id;
-
+          gatewayPaymentId = paymentEntity?.id;
           status = 'success';
-
           break;
         }
-
-        // ------------------------------------------------------
-        // PAYMENT AUTHORIZED
-        // ------------------------------------------------------
 
         case 'payment.authorized': {
-          gatewayPaymentId =
-            paymentEntity?.id;
-
+          gatewayPaymentId = paymentEntity?.id;
           status = 'pending';
-
           break;
         }
-
-        // ------------------------------------------------------
-        // PAYMENT FAILED
-        // ------------------------------------------------------
 
         case 'payment.failed': {
-          gatewayPaymentId =
-            paymentEntity?.id;
-
+          gatewayPaymentId = paymentEntity?.id;
           status = 'failed';
-
           break;
         }
-
-        // ------------------------------------------------------
-        // REFUND PROCESSED
-        // ------------------------------------------------------
 
         case 'refund.processed': {
-          gatewayPaymentId =
-            refundEntity?.payment_id;
-
+          gatewayPaymentId = refundEntity?.payment_id;
           status = 'refunded';
-
           break;
         }
-
-        // ------------------------------------------------------
-        // ORDER PAID
-        //
-        // order.paid may not contain payment.entity.id.
-        // The webhook route will use order_id to find the
-        // internal payment record.
-        // ------------------------------------------------------
 
         case 'order.paid': {
           const orderEntity =
@@ -368,17 +325,10 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
 
           return {
             success: true,
-
-            payment_id:
-              orderEntity?.id,
-
+            payment_id: orderEntity?.id,
             status: 'success',
           };
         }
-
-        // ------------------------------------------------------
-        // OTHER EVENTS
-        // ------------------------------------------------------
 
         default: {
           console.log(
@@ -388,15 +338,10 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
 
           return {
             success: true,
-
             status: 'pending',
           };
         }
       }
-
-      // --------------------------------------------------------
-      // Payment ID is required for payment events
-      // --------------------------------------------------------
 
       if (!gatewayPaymentId) {
         console.error(
@@ -414,21 +359,9 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
         };
       }
 
-      // --------------------------------------------------------
-      // IMPORTANT
-      //
-      // payment_id here means Razorpay's payment ID:
-      //
-      // pay_xxxxxxxxx
-      //
-      // It does NOT mean our internal payments.id.
-      // --------------------------------------------------------
-
       return {
         success: true,
-
         payment_id: gatewayPaymentId,
-
         status,
       };
     } catch (error: any) {
@@ -439,7 +372,6 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
 
       return {
         success: false,
-
         error:
           error?.message ||
           'Webhook processing failed',
@@ -463,7 +395,6 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
           params.gateway_payment_id,
           {
             amount: amountInPaise,
-
             notes: {
               reason:
                 params.reason ||
@@ -474,7 +405,6 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
 
       return {
         success: true,
-
         gateway_refund_id: refund.id,
       };
     } catch (error: any) {
@@ -485,7 +415,6 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
 
       return {
         success: false,
-
         error:
           error?.message ||
           'Refund failed',
@@ -516,22 +445,28 @@ export class RazorpayAdapter implements IPaymentGatewayAdapter {
     signature: string
   ): boolean {
     try {
+      const webhookSecret =
+        process.env.PAYMENT_ENV === 'production'
+          ? process.env.RAZORPAY_WEBHOOK_SECRET || ''
+          : process.env.RAZORPAY_WEBHOOK_SECRET_SANDBOX || '';
+
+      if (!webhookSecret || !signature) {
+        return false;
+      }
+
       const expectedSignature = crypto
-        .createHmac(
-          'sha256',
-          process.env.PAYMENT_ENV === 'production'
-            ? process.env.RAZORPAY_WEBHOOK_SECRET || ''
-            : process.env.RAZORPAY_WEBHOOK_SECRET_SANDBOX || ''
-        )
+        .createHmac('sha256', webhookSecret)
         .update(payload)
         .digest('hex');
 
+      const expectedBuffer = Buffer.from(expectedSignature);
+      const signatureBuffer = Buffer.from(signature);
+
       return (
-        expectedSignature.length ===
-        signature.length &&
+        expectedBuffer.length === signatureBuffer.length &&
         crypto.timingSafeEqual(
-          Buffer.from(expectedSignature),
-          Buffer.from(signature)
+          expectedBuffer,
+          signatureBuffer
         )
       );
     } catch (error) {

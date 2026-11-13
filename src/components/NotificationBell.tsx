@@ -30,25 +30,36 @@ export function NotificationBell({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const readStateRef = useRef(new Map<string, boolean>());
+  const hasLoadedRef = useRef(false);
   const [panelPosition, setPanelPosition] = useState<{ top: number; right: number } | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!userId) return;
+    if (!hasLoadedRef.current) setIsLoading(true);
     try {
       const res = await fetch("/api/notifications", { cache: "no-store" });
       const data = await res.json();
-      if (res.ok && data.success) {
-        const nextNotifications = (data.notifications || []) as NotificationItem[];
-        readStateRef.current = new Map(nextNotifications.map((notification) => [notification.id, notification.is_read]));
-        setNotifications(nextNotifications);
-        setUnreadCount(nextNotifications.filter((notification) => !notification.is_read).length);
+      if (!res.ok || !data.success || !Array.isArray(data.notifications)) {
+        throw new Error(data.error || "Notifications could not be loaded.");
       }
+      const nextNotifications = data.notifications as NotificationItem[];
+      readStateRef.current = new Map(nextNotifications.map((notification) => [notification.id, notification.is_read]));
+      setNotifications(nextNotifications);
+      setUnreadCount(nextNotifications.filter((notification) => !notification.is_read).length);
+      setLoadError(null);
+      hasLoadedRef.current = true;
     } catch (err) {
-      console.warn("[NotificationBell] Failed to fetch notifications:", err);
+      console.error("[NotificationBell] Failed to fetch notifications:", err);
+      setLoadError(err instanceof Error ? err.message : "Notifications could not be loaded.");
+      hasLoadedRef.current = true;
+    } finally {
+      setIsLoading(false);
     }
   }, [userId]);
 
@@ -201,6 +212,8 @@ export function NotificationBell({
 
   const getIcon = (type: string) => {
     switch (type) {
+      case "booking_received":
+        return "📩";
       case "booking_new":
         return "🚀";
       case "booking_confirmed":
@@ -307,12 +320,22 @@ export function NotificationBell({
           </div>
 
           <div className="min-h-0 overflow-y-auto divide-y divide-white/5">
-            {notifications.length === 0 ? (
+            {loadError && (
+              <div role="alert" className="m-3 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-xs text-red-200">
+                <p>{loadError}</p>
+                <button type="button" onClick={() => void fetchNotifications()} className="mt-2 font-bold underline">
+                  Retry
+                </button>
+              </div>
+            )}
+            {isLoading && notifications.length === 0 ? (
+              <div role="status" className="p-8 text-center text-xs font-medium text-zinc-400">Loading notifications…</div>
+            ) : notifications.length === 0 && !loadError ? (
               <div className="p-8 text-center text-zinc-400 text-xs font-medium">
                 <div className="text-3xl mb-2 opacity-50">🔔</div>
                 No notifications yet
               </div>
-            ) : (
+            ) : notifications.length > 0 ? (
               notifications.map((n) => (
                 <article
                   key={n.id}
@@ -352,7 +375,7 @@ export function NotificationBell({
                   )}
                 </article>
               ))
-            )}
+            ) : null}
           </div>
         </div>,
         document.body

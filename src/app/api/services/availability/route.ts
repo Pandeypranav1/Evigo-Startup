@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "@/lib/server";
+import { ownsProviderResource } from "@/lib/provider-workflow";
 
 export const runtime = "nodejs";
 
@@ -13,6 +15,14 @@ export async function PATCH(request: Request) {
         { success: false, error: "service_id and boolean is_available are required" },
         { status: 400 }
       );
+    }
+
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError || !user) {
+      return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+    }
+    if (user_id && user_id !== user.id) {
+      return NextResponse.json({ success: false, error: "You can only update your own services" }, { status: 403 });
     }
 
     const supabase = createAdminClient();
@@ -31,21 +41,27 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Verify ownership if user_id or provider_id is provided
-    if (user_id) {
-      const { data: providerRows } = await supabase
-        .from("providers")
-        .select("id")
-        .eq("user_id", user_id);
+    const { data: providerRows, error: providersError } = await supabase
+      .from("providers")
+      .select("id")
+      .eq("user_id", user.id);
+    if (providersError) {
+      console.error("[PATCH /api/services/availability] Provider lookup error:", providersError);
+      return NextResponse.json(
+        { success: false, error: "Unable to verify service ownership" },
+        { status: 500 }
+      );
+    }
 
-      const ownedProviderIds = (providerRows || []).map((p) => p.id);
-      // Allow if service belongs to one of user's providers or user is managing FaabCab
-      if (!ownedProviderIds.includes(service.provider_id) && service.provider_id !== "6105241d-1d38-4274-b912-eea67f4c32b0") {
-        return NextResponse.json(
-          { success: false, error: "Unauthorized: You do not own this service" },
-          { status: 403 }
-        );
-      }
+    const ownedProviderIds = (providerRows ?? []).map((provider) => provider.id);
+    if (
+      (provider_id && provider_id !== service.provider_id) ||
+      !ownsProviderResource(ownedProviderIds, service.provider_id)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: You do not own this service" },
+        { status: 403 }
+      );
     }
 
     const { data: updated, error: updateErr } = await supabase

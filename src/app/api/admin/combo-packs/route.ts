@@ -1,31 +1,35 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
-import { isAllowedAdminEmail } from "@/lib/admin";
-import { DEFAULT_COMBO_PACKS, calculateComboPrice } from "@/lib/combo";
+import { getAuthenticatedUser } from "@/lib/server";
+import { isAuthorizedAdmin } from "@/lib/admin";
+import { calculateComboPrice } from "@/lib/combo";
 
 export const runtime = "nodejs";
 
-function authorizeAdmin(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const email =
-    request.headers.get("x-user-email") ??
-    request.headers.get("x-admin-email") ??
-    searchParams.get("user_email") ??
-    "";
-  const role =
-    request.headers.get("x-user-role") ??
-    request.headers.get("x-role") ??
-    searchParams.get("user_role") ??
-    "";
-
-  if (!email || role === "client" || !isAllowedAdminEmail(email)) {
-    throw new Error("Unauthorized admin access");
+async function authorizeAdmin() {
+  const { user, error } = await getAuthenticatedUser();
+  if (error) {
+    console.warn("[admin/combo-packs] Session verification failed:", error.code);
   }
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "A valid signed-in session is required." },
+      { status: 401 }
+    );
+  }
+  if (!isAuthorizedAdmin(user)) {
+    return NextResponse.json(
+      { success: false, error: "This account is not authorized to manage combo packages." },
+      { status: 403 }
+    );
+  }
+  return null;
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    authorizeAdmin(request);
+    const authorizationResponse = await authorizeAdmin();
+    if (authorizationResponse) return authorizationResponse;
 
     const supabase = createAdminClient();
     const { data: packs, error } = await supabase
@@ -33,30 +37,31 @@ export async function GET(request: Request) {
       .select("*, items:combo_pack_items(*)")
       .order("created_at", { ascending: false });
 
-    if (error || !packs || packs.length === 0) {
-      return NextResponse.json({
-        success: true,
-        comboPacks: DEFAULT_COMBO_PACKS,
-        isFallback: true,
-      });
+    if (error) {
+      console.error("[GET /api/admin/combo-packs] Query error:", error);
+      return NextResponse.json(
+        { success: false, error: "Unable to load combo packages." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
-      comboPacks: packs,
+      comboPacks: packs ?? [],
     });
-  } catch (err: any) {
-    const isAuth = err?.message?.includes("Unauthorized");
+  } catch (err: unknown) {
+    console.error("[GET /api/admin/combo-packs] Request failed:", err);
     return NextResponse.json(
-      { success: false, error: err?.message || "Admin authorization failed" },
-      { status: isAuth ? 403 : 500 }
+      { success: false, error: "Unable to load combo packages." },
+      { status: 500 }
     );
   }
 }
 
 export async function POST(request: Request) {
   try {
-    authorizeAdmin(request);
+    const authorizationResponse = await authorizeAdmin();
+    if (authorizationResponse) return authorizationResponse;
 
     const body = await request.json();
     const {
@@ -76,6 +81,12 @@ export async function POST(request: Request) {
     if (!name || !category) {
       return NextResponse.json(
         { success: false, error: "Name and Category are required" },
+        { status: 400 }
+      );
+    }
+    if (!Array.isArray(items)) {
+      return NextResponse.json(
+        { success: false, error: "Package items must be a list." },
         { status: 400 }
       );
     }
@@ -124,7 +135,28 @@ export async function POST(request: Request) {
         is_required: it.is_required !== false,
       }));
 
-      await supabase.from("combo_pack_items").insert(itemsPayload);
+      const { error: itemsError } = await supabase
+        .from("combo_pack_items")
+        .insert(itemsPayload);
+      if (itemsError) {
+        console.error("[POST /api/admin/combo-packs] Item insert error:", itemsError);
+        const { error: rollbackError } = await supabase
+          .from("combo_packs")
+          .delete()
+          .eq("id", createdPack.id);
+        if (rollbackError) {
+          console.error("[POST /api/admin/combo-packs] Failed to roll back package:", rollbackError);
+        }
+        return NextResponse.json(
+          {
+            success: false,
+            error: rollbackError
+              ? "Package creation failed and the incomplete package could not be rolled back."
+              : "Package services could not be saved; package creation was rolled back.",
+          },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
@@ -132,18 +164,19 @@ export async function POST(request: Request) {
       message: "Combo package created successfully",
       comboPack: createdPack,
     });
-  } catch (err: any) {
-    const isAuth = err?.message?.includes("Unauthorized");
+  } catch (err: unknown) {
+    console.error("[POST /api/admin/combo-packs] Request failed:", err);
     return NextResponse.json(
-      { success: false, error: err?.message || "Failed to create combo package" },
-      { status: isAuth ? 403 : 500 }
+      { success: false, error: "Failed to create combo package." },
+      { status: 500 }
     );
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    authorizeAdmin(request);
+    const authorizationResponse = await authorizeAdmin();
+    if (authorizationResponse) return authorizationResponse;
 
     const body = await request.json();
     const { id, is_active, base_price, discount, description, duration, city, name } = body;
@@ -185,18 +218,19 @@ export async function PATCH(request: Request) {
       message: "Combo package updated successfully",
       comboPack: updated,
     });
-  } catch (err: any) {
-    const isAuth = err?.message?.includes("Unauthorized");
+  } catch (err: unknown) {
+    console.error("[PATCH /api/admin/combo-packs] Request failed:", err);
     return NextResponse.json(
-      { success: false, error: err?.message || "Failed to update combo package" },
-      { status: isAuth ? 403 : 500 }
+      { success: false, error: "Failed to update combo package." },
+      { status: 500 }
     );
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    authorizeAdmin(request);
+    const authorizationResponse = await authorizeAdmin();
+    if (authorizationResponse) return authorizationResponse;
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -212,11 +246,11 @@ export async function DELETE(request: Request) {
       success: true,
       message: "Combo package deleted successfully",
     });
-  } catch (err: any) {
-    const isAuth = err?.message?.includes("Unauthorized");
+  } catch (err: unknown) {
+    console.error("[DELETE /api/admin/combo-packs] Request failed:", err);
     return NextResponse.json(
-      { success: false, error: err?.message || "Failed to delete combo package" },
-      { status: isAuth ? 403 : 500 }
+      { success: false, error: "Failed to delete combo package." },
+      { status: 500 }
     );
   }
 }

@@ -428,3 +428,152 @@ export async function sendBookingCancelledEmailToProvider(params: {
     htmlContent: emailLayout("Booking Cancelled", content),
   });
 }
+
+export async function sendBookingReceivedEmailToClient(params: {
+  clientEmail: string;
+  clientName: string;
+  bookingId: string;
+  providerName: string;
+  service: string;
+  date: string;
+  time?: string | null;
+  dashboardUrl?: string;
+}) {
+  const {
+    clientEmail,
+    clientName,
+    bookingId,
+    providerName,
+    service,
+    date,
+    time,
+    dashboardUrl = "https://evigo.in/dashboard",
+  } = params;
+
+  const content = `
+    <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #a78bfa;">
+      Booking Request Received
+    </h2>
+    <p style="margin: 0 0 20px; font-size: 14px; color: #d1d5db; line-height: 1.6;">
+      Hello <strong>${clientName}</strong>, we have received your booking request with <strong>${providerName}</strong>. The provider will review it and confirm shortly.
+    </p>
+
+    <div style="background-color: #1a1435; border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 14px; padding: 18px 20px; margin-bottom: 24px;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="6">
+        <tr>
+          <td width="40%" style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Booking ID</td>
+          <td width="60%" style="font-size: 13px; font-weight: 800; color: #a78bfa; font-family: monospace;">#${bookingId}</td>
+        </tr>
+        <tr>
+          <td style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Provider</td>
+          <td style="font-size: 13px; font-weight: 700; color: #ffffff;">${providerName}</td>
+        </tr>
+        <tr>
+          <td style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Service</td>
+          <td style="font-size: 13px; font-weight: 700; color: #a78bfa;">${service}</td>
+        </tr>
+        <tr>
+          <td style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Date</td>
+          <td style="font-size: 13px; font-weight: 600; color: #ffffff;">${date}</td>
+        </tr>
+        ${time ? `
+        <tr>
+          <td style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Time</td>
+          <td style="font-size: 13px; font-weight: 600; color: #ffffff;">${time}</td>
+        </tr>` : ""}
+        <tr>
+          <td style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Status</td>
+          <td style="font-size: 13px; font-weight: 700; color: #fbbf24;">Awaiting provider confirmation</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="font-size: 13px; color: #9ca3af;">
+      You will receive another email once the provider accepts or declines this request.
+    </p>
+
+    <div style="text-align: center; margin: 24px 0 10px;">
+      <a href="${dashboardUrl}" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6, #06b6d4); color: #ffffff; text-decoration: none; padding: 13px 28px; border-radius: 12px; font-size: 14px; font-weight: 800; letter-spacing: 0.5px;">
+        Track Booking in Dashboard →
+      </a>
+    </div>
+  `;
+
+  return sendBrevoEmail({
+    toEmail: clientEmail,
+    toName: clientName,
+    subject: `Booking Request Received #${bookingId.slice(-6)} - ${service}`,
+    htmlContent: emailLayout("Booking Request Received", content),
+  });
+}
+
+export async function sendBookingCompletedEmailToClient(params: {
+  clientEmail: string;
+  clientName: string;
+  bookingId: string;
+  providerName: string;
+  service: string;
+  date: string;
+  dashboardUrl?: string;
+}) {
+  const {
+    clientEmail,
+    clientName,
+    bookingId,
+    providerName,
+    service,
+    date,
+    dashboardUrl = "https://evigo.in/dashboard",
+  } = params;
+
+  const content = `
+    <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #22d3ee;">
+      Service Completed
+    </h2>
+    <p style="margin: 0 0 20px; font-size: 14px; color: #d1d5db; line-height: 1.6;">
+      Hello <strong>${clientName}</strong>, your booking with <strong>${providerName}</strong> has been marked as completed. Thank you for choosing Evigo!
+    </p>
+
+    <div style="background-color: #0e2a33; border: 1px solid rgba(34, 211, 238, 0.3); border-radius: 14px; padding: 18px 20px; margin-bottom: 24px;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="6">
+        <tr>
+          <td width="40%" style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Booking ID</td>
+          <td width="60%" style="font-size: 13px; font-weight: 800; color: #22d3ee; font-family: monospace;">#${bookingId}</td>
+        </tr>
+        <tr>
+          <td style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Provider</td>
+          <td style="font-size: 13px; font-weight: 700; color: #ffffff;">${providerName}</td>
+        </tr>
+        <tr>
+          <td style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Service</td>
+          <td style="font-size: 13px; font-weight: 700; color: #a78bfa;">${service}</td>
+        </tr>
+        <tr>
+          <td style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Date</td>
+          <td style="font-size: 13px; font-weight: 600; color: #ffffff;">${date}</td>
+        </tr>
+        <tr>
+          <td style="font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase;">Status</td>
+          <td style="font-size: 13px; font-weight: 700; color: #34d399;">Completed</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="font-size: 13px; color: #9ca3af;">
+      If you had a great experience, consider leaving a review for ${providerName} on Evigo.
+    </p>
+
+    <div style="text-align: center; margin: 24px 0 10px;">
+      <a href="${dashboardUrl}" style="display: inline-block; background: #374151; color: #ffffff; text-decoration: none; padding: 11px 24px; border-radius: 12px; font-size: 13px; font-weight: 700;">
+        View Booking History →
+      </a>
+    </div>
+  `;
+
+  return sendBrevoEmail({
+    toEmail: clientEmail,
+    toName: clientName,
+    subject: `Service Completed #${bookingId.slice(-6)} - ${service}`,
+    htmlContent: emailLayout("Service Completed", content),
+  });
+}

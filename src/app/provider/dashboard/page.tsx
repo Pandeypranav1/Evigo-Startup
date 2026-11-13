@@ -41,6 +41,7 @@ export default function ProviderDashboard() {
   const [providerRecord, setProviderRecord] = useState<any | null>(null);
 
   const [loadingData, setLoadingData] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   const [activeFilter, setActiveFilter] =
     useState<FilterStatus>("all");
@@ -103,6 +104,7 @@ export default function ProviderDashboard() {
         if (showLoading) {
           setLoadingData(true);
         }
+        setDataError(null);
 
         // --------------------------------------------------------
         // 1. Fetch provider bookings
@@ -112,9 +114,7 @@ export default function ProviderDashboard() {
         // --------------------------------------------------------
 
         const bookingsRes = await fetch(
-          `/api/bookings?role=provider&user_id=${encodeURIComponent(
-            userId
-          )}&provider_id=faab-cab`,
+          `/api/bookings?role=provider&user_id=${encodeURIComponent(userId)}`,
           {
             cache: "no-store",
           }
@@ -122,12 +122,10 @@ export default function ProviderDashboard() {
 
         const bookingsData = await bookingsRes.json();
 
-        if (
-          bookingsData.success &&
-          Array.isArray(bookingsData.bookings)
-        ) {
-          setBookings(bookingsData.bookings);
+        if (!bookingsRes.ok || !bookingsData.success || !Array.isArray(bookingsData.bookings)) {
+          throw new Error(bookingsData.error || "Provider bookings could not be loaded.");
         }
+        setBookings(bookingsData.bookings);
 
         // --------------------------------------------------------
         // 2. Fetch provider services
@@ -142,12 +140,10 @@ export default function ProviderDashboard() {
 
         const servicesData = await servicesRes.json();
 
-        if (
-          servicesData.success &&
-          Array.isArray(servicesData.services)
-        ) {
-          setServices(servicesData.services);
+        if (!servicesRes.ok || !servicesData.success || !Array.isArray(servicesData.services)) {
+          throw new Error(servicesData.error || "Provider services could not be loaded.");
         }
+        setServices(servicesData.services);
 
         // --------------------------------------------------------
         // 3. Fetch provider combo items
@@ -164,12 +160,10 @@ export default function ProviderDashboard() {
 
         const comboData = await comboRes.json();
 
-        if (
-          comboData.success &&
-          Array.isArray(comboData.items)
-        ) {
-          setComboItems(comboData.items);
+        if (!comboRes.ok || !comboData.success || !Array.isArray(comboData.items)) {
+          throw new Error(comboData.error || "Combo booking requests could not be loaded.");
         }
+        setComboItems(comboData.items);
 
         // --------------------------------------------------------
         // 4. Fetch user profile
@@ -184,10 +178,10 @@ export default function ProviderDashboard() {
 
         const profileData = await profileRes.json();
 
-        if (
-          profileData.success &&
-          profileData.profile
-        ) {
+        if (!profileRes.ok || !profileData.success) {
+          throw new Error(profileData.error || "Provider profile could not be loaded.");
+        }
+        if (profileData.profile) {
           setProfile(profileData.profile);
         }
 
@@ -204,20 +198,19 @@ export default function ProviderDashboard() {
 
         const providerData = await providerRes.json();
 
-        if (
-          providerData.success &&
-          Array.isArray(providerData.providers) &&
-          providerData.providers.length > 0
-        ) {
-          setProviderRecord(
-            providerData.providers[0]
-          );
+        if (!providerRes.ok || !providerData.success || !Array.isArray(providerData.providers)) {
+          throw new Error(providerData.error || "Provider application could not be loaded.");
         }
+        if (providerData.providers.length > 0) {
+          setProviderRecord(providerData.providers[0]);
+        }
+        setDataError(null);
       } catch (err) {
         console.warn(
           "[ProviderDashboard] Error loading data:",
           err
         );
+        setDataError(err instanceof Error ? err.message : "Provider dashboard data could not be loaded.");
       } finally {
         if (showLoading) {
           setLoadingData(false);
@@ -285,7 +278,7 @@ export default function ProviderDashboard() {
         void loadData(user.id, false);
       }
     },
-    [loadData, user?.id]
+    [loadData, user]
   );
 
   // ============================================================
@@ -324,9 +317,14 @@ export default function ProviderDashboard() {
   // SIGN OUT
   // ============================================================
 
-  const handleSignOut = () => {
-    signOut();
-    router.replace("/");
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.replace("/");
+    } catch (error) {
+      console.error("[ProviderDashboard] Failed to sign out:", error);
+      window.alert("Logout could not be completed. Please try again.");
+    }
   };
 
   // ============================================================
@@ -1018,6 +1016,9 @@ export default function ProviderDashboard() {
   const isVerified =
     providerRecord?.is_verified === true;
 
+  const registrationStatus = providerRecord?.registration_status?.toLowerCase() || "pending";
+  const adminNote = providerRecord?.admin_note || null;
+
   const avatarUrl = profile?.avatar_url;
 
   const initials = displayName
@@ -1048,11 +1049,33 @@ export default function ProviderDashboard() {
   return (
     <main className="flex-1 py-10 bg-zinc-50 min-h-[90vh]">
       <Container>
+        {dataError && (
+          <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <span>Dashboard data could not be loaded: {dataError}</span>
+            <button type="button" onClick={() => void loadData(user.id)} className="rounded-lg border border-red-300 px-3 py-1.5 font-bold hover:bg-red-100">
+              Retry
+            </button>
+          </div>
+        )}
+
+        {(registrationStatus === "rejected" || registrationStatus === "suspended") && adminNote && (
+          <div role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <div className="font-bold mb-1">
+              {registrationStatus === "suspended" ? "⛔ Suspension Notice:" : "📝 Rejection Reason:"}
+            </div>
+            <div className="text-red-700">{adminNote}</div>
+            <div className="mt-2 text-xs text-red-600">
+              {registrationStatus === "suspended"
+                ? "Your listing is suspended and cannot receive bookings. Please contact support."
+                : "Please update your business profile and contact support if you have questions."}
+            </div>
+          </div>
+        )}
         {/* ======================================================
             PROVIDER PROFILE HEADER
         ====================================================== */}
 
-        <div className="relative rounded-3xl border border-zinc-200 bg-[#0f0a1e] text-white p-6 sm:p-8 overflow-hidden shadow-2xl">
+        <div id="profile" className="relative rounded-3xl border border-zinc-200 bg-[#0f0a1e] text-white p-6 sm:p-8 overflow-hidden shadow-2xl">
           <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-violet-600/20 blur-[80px] pointer-events-none" />
 
           <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-cyan-600/20 blur-[80px] pointer-events-none" />
@@ -1086,20 +1109,30 @@ export default function ProviderDashboard() {
 
               <div>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-2">
-                  {isVerified ? (
+                  {registrationStatus === "approved" ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-0.5 text-xs font-bold text-emerald-300 backdrop-blur-md">
-                      ✦ Verified Evigo Partner
+                      ✅ Approved & Verified
+                    </span>
+                  ) : registrationStatus === "rejected" ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 border border-red-500/30 px-3 py-0.5 text-xs font-bold text-red-300 backdrop-blur-md">
+                      ❌ Application Rejected
+                    </span>
+                  ) : registrationStatus === "suspended" ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/15 border border-orange-500/30 px-3 py-0.5 text-xs font-bold text-orange-300 backdrop-blur-md">
+                      ⛔ Provider Suspended
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-0.5 text-xs font-bold text-amber-300 backdrop-blur-md">
-                      ⏳ Evigo Transport Partner
+                      ⏳ Pending Approval
                     </span>
                   )}
 
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-0.5 text-[11px] font-bold text-cyan-300">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                    Online · Accepting Requests
-                  </span>
+                  {registrationStatus === "approved" && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-0.5 text-[11px] font-bold text-cyan-300">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                      Online · Accepting Requests
+                    </span>
+                  )}
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-1">
@@ -1153,11 +1186,19 @@ export default function ProviderDashboard() {
                 🔄
               </button>
 
-              <Link href="/partner">
-                <Button className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white font-bold text-xs py-2.5 px-4 shadow-lg border-0">
-                  + Add Listing
-                </Button>
-              </Link>
+              {registrationStatus === "rejected" ? (
+                <Link href="/partner">
+                  <Button className="bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-xs py-2.5 px-4 shadow-lg border-0">
+                    📝 Resubmit Application
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/partner">
+                  <Button className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white font-bold text-xs py-2.5 px-4 shadow-lg border-0">
+                    + Add Listing
+                  </Button>
+                </Link>
+              )}
 
               <Button
                 variant="secondary"
@@ -1280,7 +1321,7 @@ export default function ProviderDashboard() {
         ====================================================== */}
 
         {services.length > 0 && (
-          <div className="mt-10">
+          <div id="bookings" className="mt-10">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-black text-zinc-900 flex items-center gap-2">
@@ -1707,6 +1748,10 @@ export default function ProviderDashboard() {
                 Loading bookings...
               </div>
             </div>
+          ) : dataError ? (
+            <p className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center text-sm font-semibold text-red-800">
+              Booking results are unavailable until the dashboard data loads successfully.
+            </p>
           ) : filteredBookings.length === 0 ? (
             <div className="rounded-3xl border-2 border-dashed border-zinc-200 bg-white p-12 text-center">
               <div
@@ -1725,8 +1770,7 @@ export default function ProviderDashboard() {
               </div>
 
               <p className="text-xs text-zinc-500 max-w-xs mx-auto mt-1">
-                Customer bookings submitted through
-                Evigo will display here in real time.
+                Customer bookings saved through Evigo will appear here after the list refreshes.
               </p>
             </div>
           ) : (

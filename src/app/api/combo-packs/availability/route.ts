@@ -38,7 +38,14 @@ export async function POST(request: Request) {
       query = query.eq("slug", slug);
     }
 
-    const { data: dbPack } = await query.maybeSingle();
+    const { data: dbPack, error: packError } = await query.maybeSingle();
+    if (packError) {
+      console.error("[POST /api/combo-packs/availability] Lookup error:", packError);
+      return NextResponse.json(
+        { success: false, error: "Combo package availability is temporarily unavailable." },
+        { status: 503 }
+      );
+    }
     const pack =
       dbPack ||
       DEFAULT_COMBO_PACKS.find(

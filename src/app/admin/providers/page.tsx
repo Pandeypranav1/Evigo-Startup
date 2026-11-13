@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { Container } from "@/components/Container";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/context/AuthContext";
+import { isAllowedAdminEmail } from "@/lib/admin";
 
-type ProviderStatusFilter = "all" | "pending" | "approved" | "rejected";
+type ProviderStatusFilter = "all" | "pending" | "approved" | "rejected" | "suspended";
 
 type ProviderRecord = {
     id: string;
@@ -35,18 +36,20 @@ const filterOptions: Array<{ value: ProviderStatusFilter; label: string }> = [
     { value: "pending", label: "Pending" },
     { value: "approved", label: "Approved" },
     { value: "rejected", label: "Rejected" },
+    { value: "suspended", label: "Suspended" },
 ];
 
 export default function AdminProviderReviewPage() {
     const router = useRouter();
     const { user, loading } = useAuth();
+    const isAdmin = !!user?.email && isAllowedAdminEmail(user.email);
     const [providers, setProviders] = useState<ProviderRecord[]>([]);
     const [statusFilter, setStatusFilter] = useState<ProviderStatusFilter>("all");
     const [selectedProvider, setSelectedProvider] = useState<ProviderRecord | null>(null);
     const [updating, setUpdating] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loadingProviders, setLoadingProviders] = useState(true);
-    const [summary, setSummary] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+    const [summary, setSummary] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, suspended: 0 });
 
     const loadProviders = useCallback(async () => {
         if (!user) return;
@@ -81,9 +84,13 @@ export default function AdminProviderReviewPage() {
             router.replace("/login/provider");
             return;
         }
+        if (!isAdmin) {
+            router.replace("/");
+            return;
+        }
 
         void loadProviders();
-    }, [loading, user, router, loadProviders]);
+    }, [loading, user, isAdmin, router, loadProviders]);
 
     const displayedSummary = useMemo(() => {
         const total = providers.length;
@@ -94,31 +101,19 @@ export default function AdminProviderReviewPage() {
         return { total, pending, approved, rejected };
     }, [providers]);
 
-    const handleStatusAction = async (provider: ProviderRecord, action: "approve" | "reject") => {
+    const handleStatusAction = async (provider: ProviderRecord, action: "approve" | "reject" | "suspend" | "reinstate") => {
         if (!user) return;
 
+        let adminNote: string | undefined;
         if (action === "reject") {
             const reason = window.prompt("Enter rejection reason:", "Please update your business profile and resubmit.");
             if (!reason || !reason.trim()) {
                 return;
             }
-
-            const response = await fetch("/api/admin/providers", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: provider.id, action: "reject", admin_note: reason.trim() }),
-            });
-
-            const payload = await response.json();
-            if (!response.ok || !payload.success) {
-                setError(payload.error || "Unable to reject application.");
-                return;
-            }
-
-            setSelectedProvider(null);
-            setUpdating(null);
-            await loadProviders();
-            return;
+            adminNote = reason.trim();
+        } else if (action === "suspend") {
+            const reason = window.prompt("Enter suspension reason (optional):", "");
+            adminNote = reason?.trim() || undefined;
         }
 
         setUpdating(provider.id);
@@ -128,18 +123,18 @@ export default function AdminProviderReviewPage() {
             const response = await fetch("/api/admin/providers", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: provider.id, action: "approve" }),
+                body: JSON.stringify({ id: provider.id, action, ...(adminNote ? { admin_note: adminNote } : {}) }),
             });
 
             const payload = await response.json();
             if (!response.ok || !payload.success) {
-                throw new Error(payload.error || "Unable to approve application.");
+                throw new Error(payload.error || `Unable to ${action} application.`);
             }
 
             setSelectedProvider(null);
             await loadProviders();
         } catch (err: any) {
-            setError(err.message || "Unable to approve application.");
+            setError(err.message || `Unable to ${action} application.`);
         } finally {
             setUpdating(null);
         }
@@ -166,12 +161,13 @@ export default function AdminProviderReviewPage() {
                     <div className="text-sm font-semibold text-zinc-500">Signed in as {user.email}</div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-5">
                     {[
                         { label: "Total", value: summary.total, accent: "violet" },
                         { label: "Pending", value: summary.pending, accent: "amber" },
                         { label: "Approved", value: summary.approved, accent: "emerald" },
                         { label: "Rejected", value: summary.rejected, accent: "rose" },
+                        { label: "Suspended", value: summary.suspended, accent: "orange" },
                     ].map((item) => (
                         <div key={item.label} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
                             <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">{item.label}</div>
@@ -259,6 +255,25 @@ export default function AdminProviderReviewPage() {
                                                     Reject
                                                 </Button>
                                             </>
+                                        )}
+                                        {provider.registration_status === "approved" && (
+                                            <Button
+                                                onClick={() => void handleStatusAction(provider, "suspend")}
+                                                disabled={updating === provider.id}
+                                                variant="secondary"
+                                                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                                            >
+                                                {updating === provider.id ? "Processing…" : "Suspend"}
+                                            </Button>
+                                        )}
+                                        {provider.registration_status === "suspended" && (
+                                            <Button
+                                                onClick={() => void handleStatusAction(provider, "reinstate")}
+                                                disabled={updating === provider.id}
+                                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                            >
+                                                {updating === provider.id ? "Processing…" : "Reinstate"}
+                                            </Button>
                                         )}
                                     </div>
                                 </div>
@@ -348,22 +363,34 @@ export default function AdminProviderReviewPage() {
                             </div>
                             {selectedProvider.admin_note && (
                                 <div className="rounded-2xl bg-red-50 p-4 md:col-span-2">
-                                    <div className="text-xs font-bold uppercase tracking-[0.2em] text-red-600">Rejection Reason</div>
+                                    <div className="text-xs font-bold uppercase tracking-[0.2em] text-red-600">Admin Note</div>
                                     <div className="mt-2 text-sm leading-relaxed text-red-800">{selectedProvider.admin_note}</div>
                                 </div>
                             )}
                         </div>
 
-                        {selectedProvider.registration_status === "pending" && (
-                            <div className="mt-6 flex flex-wrap gap-3">
-                                <Button onClick={() => void handleStatusAction(selectedProvider, "approve")} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                                    Approve
+                        <div className="mt-6 flex flex-wrap gap-3">
+                            {selectedProvider.registration_status === "pending" && (
+                                <>
+                                    <Button onClick={() => void handleStatusAction(selectedProvider, "approve")} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                                        Approve
+                                    </Button>
+                                    <Button onClick={() => void handleStatusAction(selectedProvider, "reject")} variant="secondary" className="border-red-200 text-red-700 hover:bg-red-50">
+                                        Reject
+                                    </Button>
+                                </>
+                            )}
+                            {selectedProvider.registration_status === "approved" && (
+                                <Button onClick={() => void handleStatusAction(selectedProvider, "suspend")} variant="secondary" className="border-orange-200 text-orange-700 hover:bg-orange-50">
+                                    Suspend Provider
                                 </Button>
-                                <Button onClick={() => void handleStatusAction(selectedProvider, "reject")} variant="secondary" className="border-red-200 text-red-700 hover:bg-red-50">
-                                    Reject
+                            )}
+                            {selectedProvider.registration_status === "suspended" && (
+                                <Button onClick={() => void handleStatusAction(selectedProvider, "reinstate")} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    Reinstate Provider
                                 </Button>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

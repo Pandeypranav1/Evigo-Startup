@@ -1,79 +1,11 @@
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Container } from "@/components/Container";
+import { TourismImage, TourismPhotoCredit } from "@/components/TourismImage";
 import { BIHAR_DESTINATIONS, HERO_SLIDER_IMAGES } from "@/lib/constants";
-import type { TourismImageAttribution } from "@/lib/constants";
-
-function TourismImage({
-    src,
-    alt,
-    sizes,
-    className,
-    loading = "lazy",
-    objectPosition,
-}: {
-    src: string;
-    alt: string;
-    sizes: string;
-    className?: string;
-    loading?: "eager" | "lazy";
-    objectPosition?: string;
-}) {
-    const [hasError, setHasError] = useState(false);
-    const [hasFallbackError, setHasFallbackError] = useState(false);
-    const imageSrc = hasError ? "/images/districts/02_Patna.jpg" : src;
-
-    if (hasError && hasFallbackError) {
-        return (
-            <div
-                role="img"
-                aria-label={`${alt} (photo unavailable)`}
-                className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-teal-950 via-slate-900 to-slate-800 px-4 text-center text-white/75"
-            >
-                <svg aria-hidden="true" className="h-9 w-9 text-teal-200/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-9Z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m3.5 16 5-5a2 2 0 0 1 2.8 0l2.2 2.2 1.2-1.2a2 2 0 0 1 2.8 0l3 3" />
-                </svg>
-                <span className="text-xs font-semibold">Photo unavailable</span>
-            </div>
-        );
-    }
-
-    return (
-        <Image
-            src={imageSrc}
-            alt={hasError ? `${alt} — Bihar riverfront fallback photo` : alt}
-            fill
-            loading={loading}
-            unoptimized={imageSrc.startsWith("https://")}
-            onError={() => {
-                if (hasError) setHasFallbackError(true);
-                else setHasError(true);
-            }}
-            sizes={sizes}
-            style={objectPosition ? { objectPosition } : undefined}
-            className={className}
-        />
-    );
-}
-
-function PhotoCredit({ attribution }: { attribution: TourismImageAttribution }) {
-    return (
-        <a
-            href={attribution.source}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 inline-block max-w-full truncate text-[10px] leading-4 text-gray-500 underline decoration-gray-300 underline-offset-2 hover:text-teal-700"
-            aria-label={`Photo by ${attribution.name}, licensed ${attribution.license}`}
-        >
-            Photo: {attribution.name} · {attribution.license}
-        </a>
-    );
-}
 
 export default function TravelTourismPage() {
     const router = useRouter();
@@ -155,6 +87,7 @@ export default function TravelTourismPage() {
                             <TourismImage
                                 src={slide.src}
                                 alt={slide.alt}
+                                attribution={slide.imageAttribution}
                                 loading={isNearActive ? "eager" : "lazy"}
                                 className="object-cover object-center"
                                 sizes="100vw"
@@ -327,16 +260,12 @@ export default function TravelTourismPage() {
                     </button>
                 </div>
                 {HERO_SLIDER_IMAGES[currentSlide]?.imageAttribution && (
-                    <a
-                        href={HERO_SLIDER_IMAGES[currentSlide].imageAttribution?.source}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={`Hero photo credit: ${HERO_SLIDER_IMAGES[currentSlide].imageAttribution?.name}, ${HERO_SLIDER_IMAGES[currentSlide].imageAttribution?.license}`}
-                        className="absolute right-4 top-4 z-20 max-w-[42%] truncate rounded bg-[#081629]/45 px-2 py-1 text-right text-[10px] leading-4 text-white/80 underline underline-offset-2 hover:text-white sm:right-6"
-                    >
-                        Photo: {HERO_SLIDER_IMAGES[currentSlide].imageAttribution?.name} ·{" "}
-                        {HERO_SLIDER_IMAGES[currentSlide].imageAttribution?.license}
-                    </a>
+                    <div className="absolute right-4 top-4 z-20 max-w-[42%] truncate rounded bg-[#081629]/45 px-2 py-1 text-right text-white/80 sm:right-6">
+                        <TourismPhotoCredit
+                            attribution={HERO_SLIDER_IMAGES[currentSlide].imageAttribution}
+                            className="text-[10px] leading-4 text-white/80"
+                        />
+                    </div>
                 )}
             </section>
 
@@ -346,7 +275,7 @@ export default function TravelTourismPage() {
                     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
                         <div>
                             <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
-                                Explore Bihar's Top Circuits
+                                Explore Bihar's Top Destinations
                             </h2>
                             <p className="text-gray-600 mt-2 text-sm md:text-base">Discover the most popular travel destinations and experiences.</p>
                         </div>
@@ -360,7 +289,7 @@ export default function TravelTourismPage() {
 
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                         {BIHAR_DESTINATIONS.map((destination) => (
-                            <div key={destination.district} className="min-w-0">
+                            <div key={destination.name} className="min-w-0">
                                 <Link
                                     href={`/services/tourism?district=${encodeURIComponent(destination.district)}`}
                                     className="group relative block aspect-[4/5] overflow-hidden rounded-xl bg-slate-900 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
@@ -368,6 +297,7 @@ export default function TravelTourismPage() {
                                     <TourismImage
                                         src={destination.img}
                                         alt={destination.alt}
+                                        attribution={destination.imageAttribution}
                                         objectPosition={destination.objectPosition}
                                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                                         className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -382,7 +312,7 @@ export default function TravelTourismPage() {
                                     </div>
                                 </Link>
                                 {destination.imageAttribution && (
-                                    <PhotoCredit attribution={destination.imageAttribution} />
+                                    <TourismPhotoCredit attribution={destination.imageAttribution} />
                                 )}
                             </div>
                         ))}

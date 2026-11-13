@@ -6,7 +6,15 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Container } from "@/components/Container";
-import { TOURISM_PLACES, TOURISM_DISTRICTS, TourismDistrict, TourismPlace } from "@/lib/constants";
+import {
+  getTourismPlaceMapUrl,
+  getVerifiedTourismCoordinates,
+  TOURISM_PLACES,
+  TOURISM_DISTRICTS,
+  TourismDistrict,
+  TourismPlace,
+} from "@/lib/constants";
+import { TourismImage, TourismPhotoCredit } from "@/components/TourismImage";
 
 // Dynamically import TourismMap with ssr: false & a sleek skeleton loader
 const TourismMap = dynamic(() =>
@@ -68,17 +76,10 @@ function getCategoryBadge(category: string) {
   };
 }
 
-function getPlaceMapUrl(place: TourismPlace) {
-  return place.lat !== undefined && place.lng !== undefined && !isNaN(place.lat) && !isNaN(place.lng)
-    ? `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      `${place.name}, ${place.district}, Bihar`
-    )}`;
-}
-
 function getDistrictId(requestedDistrict: string | null) {
   const requested = requestedDistrict?.trim().toLowerCase();
   if (!requested) return "Jamui";
+  if (requested === "rajgir") return "Nalanda";
 
   const exactMatch = TOURISM_DISTRICTS.find(
     (district) =>
@@ -122,7 +123,7 @@ function formatTravelDate(date: string | null) {
 }
 
 function PlaceDetailsModal({ place, onClose }: { place: TourismPlace; onClose: () => void }) {
-  const mapUrl = getPlaceMapUrl(place);
+  const mapUrl = getTourismPlaceMapUrl(place);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -158,15 +159,18 @@ function PlaceDetailsModal({ place, onClose }: { place: TourismPlace; onClose: (
           ×
         </button>
         <div className="relative aspect-[16/8] bg-zinc-900">
-          {place.image && (
-            <Image
+          {place.image && place.imageAttribution ? (
+            <TourismImage
               src={place.image}
-              alt={place.name}
-              fill
-              unoptimized={place.image.startsWith("https://")}
+              alt={place.imageAlt ?? place.name}
+              attribution={place.imageAttribution}
               sizes="(max-width: 768px) 100vw, 768px"
               className="object-cover"
             />
+          ) : (
+            <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-violet-950/70 via-[#150f28] to-[#0a0614] px-4 text-center text-xs text-white/60">
+              Destination photo not independently verified
+            </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0f0a1e] via-[#0f0a1e]/20 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
@@ -176,6 +180,12 @@ function PlaceDetailsModal({ place, onClose }: { place: TourismPlace; onClose: (
         </div>
 
         <div className="space-y-6 p-5 sm:p-7">
+          {place.imageAttribution && (
+            <TourismPhotoCredit
+              attribution={place.imageAttribution}
+              className="text-xs leading-5 text-white/55"
+            />
+          )}
           <section>
             <h3 className="text-sm font-black uppercase tracking-wider text-cyan-300">About</h3>
             <p className="mt-2 text-sm leading-6 text-white/80">{place.overview}</p>
@@ -212,17 +222,26 @@ function PlaceDetailsModal({ place, onClose }: { place: TourismPlace; onClose: (
           <section>
             <h3 className="text-sm font-black uppercase tracking-wider text-cyan-300">Sources</h3>
             <ul className="mt-2 space-y-2">
-              {place.historySources.map((source) => (
-                <li key={source.url}>
-                  <a href={source.url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-cyan-200 underline decoration-cyan-200/40 underline-offset-4 hover:text-white">
-                    {source.label} ↗
-                  </a>
+              {place.historySources.length > 0 ? (
+                place.historySources.map((source) => (
+                  <li key={source.url}>
+                    <a href={source.url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-cyan-200 underline decoration-cyan-200/40 underline-offset-4 hover:text-white">
+                      {source.label} ↗
+                    </a>
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm leading-6 text-amber-100/80">
+                  No primary source or specific visitor venue could be verified for this entry.
                 </li>
-              ))}
+              )}
             </ul>
           </section>
+          <p className="text-xs leading-5 text-white/50">
+            Schedules and charges are shown only when published in the linked official source; confirm current details locally. Map links search by destination name unless a source-verified pin is available.
+          </p>
           <a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-xl bg-cyan-500/15 px-4 text-sm font-bold text-cyan-100 hover:bg-cyan-500/25">
-            View on Map ↗
+            Search Google Maps ↗
           </a>
         </div>
       </article>
@@ -240,19 +259,18 @@ function PlaceCard({
 }) {
   const catStyle = getCategoryBadge(place.category);
   const [saved, setSaved] = useState(false);
-  const mapUrl = getPlaceMapUrl(place);
+  const mapUrl = getTourismPlaceMapUrl(place);
 
   return (
     <div className="group bg-[#0f0a1e] border border-white/10 rounded-3xl overflow-hidden flex flex-col shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-cyan-500/50 hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)] hover:-translate-y-1">
       {/* Visual Header / Image */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-violet-950/40 via-[#150f28] to-[#0a0614]">
-        {place.image ? (
+        {place.image && place.imageAttribution ? (
           <>
-            <Image
+            <TourismImage
               src={place.image}
-              alt={place.name}
-              fill
-              unoptimized={place.image.startsWith("https://")}
+              alt={place.imageAlt ?? place.name}
+              attribution={place.imageAttribution}
               className="object-cover transition-transform duration-700 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
@@ -264,7 +282,7 @@ function PlaceCard({
               {catStyle.icon}
             </div>
             <span className="text-xs font-semibold text-white/40 tracking-wider uppercase">
-              {place.district} District
+              Destination photo not independently verified
             </span>
           </div>
         )}
@@ -315,6 +333,12 @@ function PlaceCard({
           <h3 className="text-xl font-bold text-white group-hover:text-cyan-300 transition-colors">
             {place.name}
           </h3>
+          {place.imageAttribution && (
+            <TourismPhotoCredit
+              attribution={place.imageAttribution}
+              className="mt-1 text-[10px] leading-4 text-white/50"
+            />
+          )}
         </div>
 
         <p className="text-sm text-white/70 leading-relaxed mb-5 flex-1">
@@ -335,12 +359,12 @@ function PlaceCard({
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-colors text-xs font-semibold"
-            title="Open in Google Maps"
+            title="Search Google Maps by destination name; an exact pin is not verified"
           >
             <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
             </svg>
-            <span>Directions &rarr;</span>
+            <span>Search Maps &rarr;</span>
           </a>
         </div>
       </div>
@@ -389,9 +413,8 @@ function TourismResults() {
     return `/services/tourism?${params.toString()}`;
   };
 
-  const districtPlaces = TOURISM_PLACES.filter((place) =>
-    place.district.toLowerCase() === selectedDistrict.toLowerCase() ||
-    (selectedDistrict === "Rajgir" && place.district.toLowerCase() === "nalanda")
+  const districtPlaces = TOURISM_PLACES.filter(
+    (place) => place.district.toLowerCase() === selectedDistrict.toLowerCase()
   );
 
   const filteredPlaces = districtPlaces.filter((p) => {
@@ -430,6 +453,9 @@ function TourismResults() {
     }
     return true;
   });
+  const mappablePlaces = filteredPlaces.filter((place) =>
+    getVerifiedTourismCoordinates(place)
+  );
 
   const selectedDistrictInfo: TourismDistrict | undefined = currentDistrictInfo;
 
@@ -438,14 +464,15 @@ function TourismResults() {
       {/* District Hero Section - Premium Design with Video/Thumbnail Area */}
       <section className="relative isolate min-h-[400px] overflow-hidden border-b border-white/10 sm:min-h-[450px] md:min-h-[500px]">
         {selectedDistrictInfo && (
-          <Image
+          <TourismImage
             src={selectedDistrictInfo.heroImage}
             alt={selectedDistrictInfo.heroImageAlt}
-            fill
-            preload
-            unoptimized={selectedDistrictInfo.heroImage.startsWith("https://")}
+            attribution={selectedDistrictInfo.imageAttribution}
+            loading="eager"
             sizes="100vw"
             className="object-cover object-center"
+            unverifiedLabel="District photo not independently verified"
+            fallbackClassName="absolute inset-0 grid place-items-center bg-gradient-to-br from-[#172554] via-[#172034] to-[#0b1424] px-4 text-center text-xs text-white/60"
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-r from-[#0b1424]/95 via-[#0b1424]/75 to-[#0b1424]/40" />
@@ -472,7 +499,7 @@ function TourismResults() {
               <div className="flex flex-wrap items-center gap-3 mb-5">
                 <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 backdrop-blur-md">
                   <span>🌟</span>
-                  Bihar Tourism
+                  Tourism information
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold text-orange-300 bg-orange-500/10 border border-orange-500/20 backdrop-blur-md">
                   <span>📍</span>
@@ -496,19 +523,19 @@ function TourismResults() {
                   <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <span className="text-xs font-semibold text-white/80">Oct - Mar</span>
+                  <span className="text-xs font-semibold text-white/80">{selectedDistrictInfo?.count ?? 0} listed places</span>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-4 py-2">
                   <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   </svg>
-                  <span className="text-xs font-semibold text-white/80">Jain Heritage</span>
+                  <span className="text-xs font-semibold text-white/80">Source links vary by place</span>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-4 py-2">
                   <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  <span className="text-xs font-semibold text-white/80">Pilgrims</span>
+                  <span className="text-xs font-semibold text-white/80">Confirm current access locally</span>
                 </div>
               </div>
             </div>
@@ -516,7 +543,7 @@ function TourismResults() {
           </div>
         </Container>
         {selectedDistrictInfo?.imageAttribution && (
-          <div className="absolute bottom-3 right-4 z-10 max-w-[40%] text-right text-[10px] leading-4 text-white/70 sm:right-6">
+          <div className="absolute right-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded bg-[#0b1424]/60 px-2 py-1 text-right text-[10px] leading-4 text-white/70 sm:right-6 sm:top-4">
             Photo{" "}
             <a href={selectedDistrictInfo.imageAttribution.source} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-white">
               {selectedDistrictInfo.imageAttribution.name}
@@ -537,22 +564,23 @@ function TourismResults() {
             {TOURISM_DISTRICTS.map((dist) => {
               const isActive = selectedDistrict === dist.id;
               return (
-                <Link
-                  key={dist.id}
+                <div key={dist.id} className="w-36 shrink-0">
+                  <Link
                   href={getDistrictHref(dist.id)}
-                  className={`shrink-0 group block w-36 rounded-xl overflow-hidden border transition-all duration-300 ${isActive
+                  className={`group block w-full rounded-xl overflow-hidden border transition-all duration-300 ${isActive
                     ? "border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
                     : "border-white/10 hover:border-white/30"
                   }`}
                 >
                   <div className="relative aspect-square w-full">
-                    <Image
+                    <TourismImage
                       src={dist.heroImage}
-                      alt={dist.name}
-                      fill
-                      unoptimized={dist.heroImage.startsWith("https://")}
+                      alt={dist.heroImageAlt}
+                      attribution={dist.imageAttribution}
                       sizes="144px"
                       className="object-cover"
+                      unverifiedLabel="Photo not independently verified"
+                      fallbackClassName="absolute inset-0 grid place-items-center bg-gradient-to-br from-violet-950/70 to-slate-900 p-3 text-center text-[10px] text-white/50"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   </div>
@@ -561,7 +589,14 @@ function TourismResults() {
                       {dist.name}
                     </h3>
                   </div>
-                </Link>
+                  </Link>
+                  {dist.imageAttribution && (
+                    <TourismPhotoCredit
+                      attribution={dist.imageAttribution}
+                      className="mt-1 max-w-full truncate text-[8px] leading-3 text-white/60"
+                    />
+                  )}
+                </div>
               );
             })}
           </div>
@@ -748,23 +783,26 @@ function TourismResults() {
             <div className="mb-10">
               <div className="mb-6">
                 <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">Explore {currentDistrictInfo?.name} on Map</h2>
-                <p className="text-sm text-white/60">Discover all attractions with our interactive map</p>
+                <p className="text-sm text-white/60">Only source-verified coordinates are shown as map pins.</p>
               </div>
-              <div className="rounded-2xl overflow-hidden border border-white/15 shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-                <div className="relative h-[400px] w-full sm:h-[450px]">
-                  <TourismMap
-                    places={filteredPlaces}
-                    centerLat={filteredPlaces[0]?.lat ?? 24.9278}
-                    centerLng={filteredPlaces[0]?.lng ?? 86.2265}
-                  />
+              {mappablePlaces.length > 0 ? (
+                <div className="rounded-2xl overflow-hidden border border-white/15 shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
+                  <div className="relative h-[400px] w-full sm:h-[450px]">
+                    <TourismMap
+                      places={mappablePlaces}
+                      centerLat={getVerifiedTourismCoordinates(mappablePlaces[0])?.lat}
+                      centerLng={getVerifiedTourismCoordinates(mappablePlaces[0])?.lng}
+                    />
+                  </div>
+                  <div className="p-4 bg-white/5 border-t border-white/10">
+                    <span className="text-xs text-white/50">{mappablePlaces.length} source-verified pins</span>
+                  </div>
                 </div>
-                <div className="p-4 bg-white/5 border-t border-white/10 flex items-center justify-between">
-                  <span className="text-xs text-white/50">{filteredPlaces.length} places marked on map</span>
-                  <button className="text-xs font-bold text-cyan-400 hover:text-cyan-300">
-                    View Full Map →
-                  </button>
-                </div>
-              </div>
+              ) : (
+                <p role="status" className="rounded-2xl border border-amber-300/20 bg-amber-300/5 p-5 text-sm leading-6 text-amber-100/80">
+                  Exact coordinates have not been verified for these destinations, so no map pins are shown. Use each place&apos;s name-based Google Maps search and confirm the location before travel.
+                </p>
+              )}
             </div>
           )}
 
@@ -815,66 +853,16 @@ function TourismResults() {
             </>
           )}
 
-          {/* Local Experiences in Jamui - 4 Card Section */}
+          {/* Local Experiences in Jamui */}
           {currentDistrictInfo && currentDistrictInfo.id === "Jamui" && (
-            <div className="mb-10">
-              <div className="mb-6">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">Local Experiences</p>
-                <h2 className="mt-1 text-2xl sm:text-3xl font-black text-white">
-                  in Jamui
-                </h2>
+            <div className="mb-10 rounded-2xl border border-amber-300/20 bg-amber-200/5 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-200">
+                Local experiences
+              </p>
+              <p className="mt-2 text-sm leading-6 text-white/70">
+                Guided tours, local food experiences, village visits, and nature walks are not currently verified or bookable through Evigo.
+              </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                  {
-                    title: "Trekking & Nature Walks",
-                    description: "Explore scenic trails through Simultala hills and nature spots",
-                    image: "/tourism/jamui/simultala.png",
-                    icon: "🥾"
-                  },
-                  {
-                    title: "Spiritual Tours",
-                    description: "Visit ancient Jain temples and sacred pilgrimage sites",
-                    image: "/tourism/jamui/lachhuar_jain.png",
-                    icon: "🛕"
-                  },
-                  {
-                    title: "Local Food Experience",
-                    description: "Taste authentic local cuisine and traditional dishes",
-                    image: "/tourism/jamui/kund_gram.png",
-                    icon: "🍽️"
-                  },
-                  {
-                    title: "Village & Rural Tourism",
-                    description: "Experience rural life and traditional village culture",
-                    image: "/tourism/jamui/patneshwar.png",
-                    icon: "🏘️"
-                  }
-                ].map((exp, index) => (
-                  <div key={index} className="group">
-                    <div className="relative aspect-[16/10] rounded-xl overflow-hidden mb-4">
-                      <Image
-                        src={exp.image}
-                        alt={exp.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    </div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">{exp.icon}</span>
-                      <h3 className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">
-                        {exp.title}
-                      </h3>
-                    </div>
-                    <p className="text-xs text-white/60 leading-relaxed">
-                      {exp.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
           )}
 
           {/* Coming Soon State for districts without places */}
@@ -884,10 +872,10 @@ function TourismResults() {
                 🗺️
               </div>
               <h3 className="text-xl font-bold text-white mb-2">
-                Curated District Trails
+                No verified destination listings yet
               </h3>
               <p className="text-sm text-white/60 leading-relaxed max-w-md mx-auto mb-6">
-                Our team is currently surveying and verifying scenic trails, pilgrimage itineraries, and licensed local guides for {currentDistrictInfo?.name}.
+                Evigo does not currently have source-verified place listings or guide services for {currentDistrictInfo?.name}. Service availability has not been confirmed.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -897,16 +885,9 @@ function TourismResults() {
                 >
                   Explore Jamui District
                 </button>
-                <a
-                  href={`https://wa.me/918809988099?text=${encodeURIComponent(
-                    `Hi Evigo, I am interested in travel & guide services for ${currentDistrictInfo?.name} district.`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-bold hover:bg-white/20 transition-colors"
-                >
-                  Request Custom Guide
-                </a>
+                <p className="text-xs text-white/60">
+                  No verified guide-service contact is currently available.
+                </p>
               </div>
             </div>
           )}
@@ -916,8 +897,8 @@ function TourismResults() {
               <div className="flex h-full flex-col sm:flex-row">
                 <div className="relative min-h-56 w-full shrink-0 bg-slate-200 sm:min-h-0 sm:w-2/5">
                   <Image
-                    src="/tourism/jamui/lachhuar_jain.png"
-                    alt="Jain temple at Lachhuar in Jamui, Bihar"
+                    src="/evigo-hero.png"
+                    alt="Evigo travel package listings"
                     fill
                     sizes="(max-width: 640px) 100vw, 320px"
                     className="object-cover"
@@ -925,11 +906,11 @@ function TourismResults() {
                 </div>
                 <div className="flex flex-1 flex-col p-6">
                   <span className="inline-flex w-fit rounded-full border border-teal-700/15 bg-teal-700/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-teal-800">
-                    Curated travel bundles
+                    Published travel packages
                   </span>
                   <h2 className="mt-3 text-2xl font-black text-slate-900 sm:text-3xl">Travel Pack Combo</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Browse available multi-service packages and trip add-ons for your Bihar journey.
+                    Check the package page for current listings. Inclusions, prices, and availability vary by package.
                   </p>
                   <ul className="mt-4 grid grid-cols-2 gap-2 text-xs font-semibold text-slate-700 sm:text-sm">
                     <li className="rounded-lg bg-white px-3 py-2">Package options</li>
@@ -960,11 +941,11 @@ function TourismResults() {
                 </div>
                 <div className="flex flex-1 flex-col p-6">
                   <span className="inline-flex w-fit rounded-full border border-orange-400/30 bg-orange-400/10 px-3 py-1 text-xs font-bold text-orange-200">
-                    Transport Partner · Bihar
+                    Transport listing · details not independently verified
                   </span>
                   <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">FaabCab</h2>
                   <p className="mt-2 text-sm leading-6 text-white/75">
-                    Explore FaabCab for inter-city journeys, airport transfers, railway pickups, and local rides.
+                    Route coverage, provider approval, and current availability have not been independently verified. Confirm details before booking.
                   </p>
                   <ul className="mt-4 grid grid-cols-2 gap-2 text-xs font-semibold text-white/80 sm:text-sm">
                     <li className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">Inter-city trips</li>
@@ -976,7 +957,7 @@ function TourismResults() {
                     href="/travel-tourism/faabcab"
                     className="mt-6 inline-flex min-h-11 w-fit items-center rounded-xl bg-orange-500 px-5 text-sm font-bold text-white transition-colors hover:bg-orange-600"
                   >
-                    Explore FaabCab <span className="ml-2" aria-hidden="true">→</span>
+                    View service details <span className="ml-2" aria-hidden="true">→</span>
                   </Link>
                 </div>
               </div>

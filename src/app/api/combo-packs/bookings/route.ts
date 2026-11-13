@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase";
 import { getAuthenticatedUser } from "@/lib/server";
 import { calculateOverallComboStatus } from "@/lib/combo";
 import { createNotificationServer } from "@/lib/notifications";
+import { ownsProviderResource } from "@/lib/provider-workflow";
 
 export const runtime = "nodejs";
 
@@ -31,12 +32,6 @@ export async function GET(request: Request) {
       if (pErr) throw pErr;
 
       const ownedProviderIds = (myProviders || []).map((p) => p.id);
-      // If FaabCab demo provider, include FaabCab provider UUID
-      const FAABCAB_PROVIDER_UUID = "6105241d-1d38-4274-b912-eea67f4c32b0";
-      if (!ownedProviderIds.includes(FAABCAB_PROVIDER_UUID)) {
-        ownedProviderIds.push(FAABCAB_PROVIDER_UUID);
-      }
-
       if (ownedProviderIds.length === 0) {
         return NextResponse.json({ success: true, items: [] });
       }
@@ -121,22 +116,31 @@ export async function PATCH(request: Request) {
       }
 
       // 2. Verify provider ownership
-      const { data: myProviders } = await supabase
+      const { data: myProviders, error: providerLookupError } = await supabase
         .from("providers")
         .select("id")
         .eq("user_id", user.id);
+      if (providerLookupError) throw providerLookupError;
 
       const ownedProviderIds = (myProviders || []).map((p) => p.id);
-      const FAABCAB_PROVIDER_UUID = "6105241d-1d38-4274-b912-eea67f4c32b0";
-      const isAuthorized =
-        (itemRow.provider_id && ownedProviderIds.includes(itemRow.provider_id)) ||
-        (itemRow.provider_id === FAABCAB_PROVIDER_UUID) ||
-        ownedProviderIds.length > 0;
+      const isAuthorized = ownsProviderResource(ownedProviderIds, itemRow.provider_id);
 
       if (!isAuthorized) {
         return NextResponse.json(
           { success: false, error: "Not authorized to update this item" },
           { status: 403 }
+        );
+      }
+
+      const currentItemStatus = String(itemRow.provider_booking_status || "pending").toLowerCase();
+      const isInitialResponse = ["accept", "confirm", "reject"].includes(action);
+      if (
+        (isInitialResponse && currentItemStatus !== "pending") ||
+        (action === "complete" && currentItemStatus !== "confirmed")
+      ) {
+        return NextResponse.json(
+          { success: false, error: "This combo service can no longer be updated from its current status" },
+          { status: 409 }
         );
       }
 
@@ -171,17 +175,25 @@ export async function PATCH(request: Request) {
         .from("combo_booking_items")
         .update(updates)
         .eq("id", item_id)
+        .eq("provider_booking_status", itemRow.provider_booking_status)
         .select()
-        .single();
+        .maybeSingle();
 
       if (itemUpdateErr) throw itemUpdateErr;
+      if (!updatedItem) {
+        return NextResponse.json(
+          { success: false, error: "This combo service was updated by another session" },
+          { status: 409 }
+        );
+      }
 
       // 3. Recalculate parent combo booking status
       const parentBookingId = itemRow.combo_booking_id;
-      const { data: allSiblings } = await supabase
+      const { data: allSiblings, error: siblingsError } = await supabase
         .from("combo_booking_items")
         .select("provider_booking_status, service_status")
         .eq("combo_booking_id", parentBookingId);
+      if (siblingsError) throw siblingsError;
 
       const newParentStatus = calculateOverallComboStatus(
         allSiblings || [updatedItem],
@@ -193,10 +205,39 @@ export async function PATCH(request: Request) {
         parentUpdates.completed_at = new Date().toISOString();
       }
 
-      await supabase
+      const { data: updatedParent, error: parentUpdateError } = await supabase
         .from("combo_bookings")
         .update(parentUpdates)
-        .eq("id", parentBookingId);
+        .eq("id", parentBookingId)
+        .select("id, status")
+        .maybeSingle();
+      if (parentUpdateError || !updatedParent) {
+        if (parentUpdateError) {
+          console.error("[PATCH /api/combo-packs/bookings] Parent status update error:", parentUpdateError);
+        }
+        const { error: rollbackError } = await supabase
+          .from("combo_booking_items")
+          .update({
+            provider_booking_status: itemRow.provider_booking_status,
+            service_status: itemRow.service_status,
+            rejection_reason: itemRow.rejection_reason,
+            provider_response_at: itemRow.provider_response_at,
+          })
+          .eq("id", item_id)
+          .eq("provider_booking_status", nextItemStatus);
+        if (rollbackError) {
+          console.error("[PATCH /api/combo-packs/bookings] Item rollback error:", rollbackError);
+        }
+        return NextResponse.json(
+          {
+            success: false,
+            error: rollbackError
+              ? "The parent booking could not be updated and the service status could not be rolled back."
+              : "The parent booking could not be updated; the service status was rolled back.",
+          },
+          { status: 500 }
+        );
+      }
 
       // 4. Notify Client
       const clientUserId = itemRow.combo_booking?.user_id;
@@ -220,6 +261,7 @@ export async function PATCH(request: Request) {
               ? `Your ${itemRow.service_type} in "${itemRow.combo_booking?.combo_name}" was declined. Reason: ${rejection_reason}`
               : `Your ${itemRow.service_type} in "${itemRow.combo_booking?.combo_name}" is now ${action === "complete" ? "completed" : "confirmed by provider"}.`,
           type: notifType,
+          dedupeKey: `combo_item:${item_id}:${nextItemStatus}:${clientUserId}`,
         });
       }
 
@@ -246,14 +288,14 @@ export async function PATCH(request: Request) {
         );
       }
 
-      if (booking.user_id && booking.user_id !== user.id) {
+      if (booking.user_id !== user.id) {
         return NextResponse.json(
           { success: false, error: "Not authorized to cancel this combo booking" },
           { status: 403 }
         );
       }
 
-      if (["completed", "cancelled"].includes(booking.status)) {
+      if (["completed", "cancelled", "rejected"].includes(booking.status)) {
         return NextResponse.json(
           { success: false, error: "This combo booking can no longer be cancelled" },
           { status: 409 }
@@ -268,19 +310,47 @@ export async function PATCH(request: Request) {
           cancelled_at: new Date().toISOString(),
         })
         .eq("id", booking_id)
+        .eq("status", booking.status)
         .select()
-        .single();
+        .maybeSingle();
 
       if (cancelErr) throw cancelErr;
+      if (!updatedBooking) {
+        return NextResponse.json(
+          { success: false, error: "This combo booking was updated by another session" },
+          { status: 409 }
+        );
+      }
 
       // Update all child items to cancelled
-      await supabase
+      const { error: itemsCancelError } = await supabase
         .from("combo_booking_items")
         .update({
           provider_booking_status: "cancelled",
           service_status: "cancelled",
         })
-        .eq("combo_booking_id", booking_id);
+        .eq("combo_booking_id", booking_id)
+        .in("provider_booking_status", ["pending", "confirmed"]);
+      if (itemsCancelError) {
+        console.error("[PATCH /api/combo-packs/bookings] Child cancellation error:", itemsCancelError);
+        const { error: parentRollbackError } = await supabase
+          .from("combo_bookings")
+          .update({ status: booking.status, cancelled_at: booking.cancelled_at })
+          .eq("id", booking_id)
+          .eq("status", "cancelled");
+        if (parentRollbackError) {
+          console.error("[PATCH /api/combo-packs/bookings] Parent cancellation rollback error:", parentRollbackError);
+        }
+        return NextResponse.json(
+          {
+            success: false,
+            error: parentRollbackError
+              ? "Provider services could not be cancelled and the parent booking could not be restored."
+              : "Provider services could not be cancelled; the parent booking was restored.",
+          },
+          { status: 500 }
+        );
+      }
 
       // Notify assigned providers
       const provIds = Array.from(
@@ -305,6 +375,7 @@ export async function PATCH(request: Request) {
             title: "Combo Booking Cancelled by Client",
             message: `Booking for "${booking.combo_name}" was cancelled by ${booking.customer_name}.`,
             type: "booking_cancelled",
+            dedupeKey: `combo_booking_cancelled:${booking_id}:${provRow.user_id}`,
           });
         }
       }

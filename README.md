@@ -149,13 +149,13 @@ startup/
 ```ts
 // SERVICE_CATEGORIES — ["Catering", "Photography", "DJ", "Mehendi & Makeup", "Restaurant"]
 
-// EVENT_VENUES (HOTEL_PARTNERS) — 4 verified Jamui hotels with images, GPS, pricing,
-//   safety features, and services
+// EVENT_VENUES, TRUSTED_PARTNERS, HOTEL_PARTNERS — empty until partner details,
+//   pricing, contact information, and locations can be verified
 
-// TOURISM_PLACES — 8 Jamui district tourism places with verified GPS coordinates,
-//   images, category, description, and featured flag
+// TOURISM_PLACES — source-attributed place records; coordinates and photos are shown
+//   only when they have independent source attribution
 
-// TOURISM_DISTRICTS — 8 Bihar districts (Jamui active, 7 Coming Soon)
+// TOURISM_DISTRICTS — 7 represented Bihar districts; Rajgir is grouped under Nalanda
 
 // BIHAR_CITIES + resolveBiharCity() — instant local geocoding without external API
 ```
@@ -165,7 +165,7 @@ startup/
 **Explore page filter flow:**
 1. User selects `Service Type`, `Location`, `Price Band` in filter bar
 2. Client-side filters run against providers fetched from `/api/providers` (GET)
-3. For "Restaurant" filter, hotel partner cards from `EVENT_VENUES` are injected client-side
+3. Hotel/venue records are not seeded from static placeholders; live listings must be verified before booking
 
 **AI Travel Assistant:**
 1. User types a query in the AI drawer on `/services/tourism`
@@ -304,12 +304,11 @@ npm run build       # Production bundle
 ## ⚠️ Known Limitations & TODOs
 
 ### Data Completeness
-- [ ] **Hotel real data**: Phone numbers, addresses, and Google ratings for all 4 partner hotels are currently placeholder values — need to be confirmed with partners
-- [ ] **Kali Mandir / Patneshwar Mandir GPS**: Approximate coordinates — exact GPS to be confirmed on-site or via Google Maps "right-click → copy coords"
-- [ ] **Jamui hotel GPS**: `EVENT_VENUES` records don't have `lat/lng` fields — should be added for map display in `NearbyHotelsV2`
+- [ ] **Verified hotel partners**: No static hotel/venue records are currently published. Add only after confirming partner identity, contact details, prices, and exact locations.
+- [ ] **Tourism map pins and photos**: Add only when exact coordinates or destination images have a source that supports the specific place.
 
 ### Tourism Expansion
-- [ ] **7 more districts** to populate: Patna, Gaya, Rajgir, Vaishali, Bhagalpur, Munger, Darbhanga
+- [ ] **Additional district listings**: Expand only with source-backed destinations; Rajgir is a city in Nalanda district, not a separate district.
 - [ ] **Tourism images** needed for all future districts (`/public/tourism/{district}/`)
 - [ ] **Verified local guide contacts** per district (planned for Other Services)
 

@@ -856,6 +856,7 @@ export class PaymentService {
           }`,
 
         type: 'booking_confirmed',
+        dedupeKey: `payment_success:${payment.id}`,
       });
     } catch (notifyErr) {
       console.warn(
@@ -1002,6 +1003,7 @@ export class PaymentService {
           `Please try again or use a different payment method.`,
 
         type: 'booking_rejected',
+        dedupeKey: `payment_failed:${payment.id}`,
       });
     } catch (notifyErr) {
       console.warn(

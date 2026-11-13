@@ -1,5 +1,6 @@
 export type ComboPackCategory =
   | "Travel + Stay"
+  | "Stay Package"
   | "Trip Combo"
   | "Event Combo"
   | "Airport/Railway + Stay"
@@ -8,6 +9,7 @@ export type ComboPackCategory =
 
 export const COMBO_CATEGORIES: ComboPackCategory[] = [
   "Travel + Stay",
+  "Stay Package",
   "Trip Combo",
   "Event Combo",
   "Airport/Railway + Stay",
@@ -24,6 +26,12 @@ export const COMBO_CATEGORY_METADATA: Record<
     icon: "🏨",
     description: "Seamless door-to-door cab transport combined with premium hotel accommodation.",
     gradient: "from-cyan-500 to-blue-600",
+  },
+  "Stay Package": {
+    label: "Stay Package",
+    icon: "🏨",
+    description: "Verified hotel, banquet, and resort stays with complimentary breakfast and premier amenities.",
+    gradient: "from-violet-500 to-indigo-600",
   },
   "Trip Combo": {
     label: "Trip Combo",

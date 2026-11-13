@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase";
 import { getAuthenticatedUser } from "@/lib/server";
-import { DEFAULT_COMBO_PACKS, calculateComboPrice } from "@/lib/combo";
+import { calculateComboPrice } from "@/lib/combo";
 import { createNotificationServer } from "@/lib/notifications";
 
 export const runtime = "nodejs";
@@ -25,17 +25,47 @@ export async function POST(request: Request) {
       special_requests,
     } = body;
 
-    const effectiveName = customer_name?.trim() || user?.user_metadata?.full_name || "Customer";
-    const effectivePhone = customer_phone?.trim() || user?.phone || "";
-    const effectiveEmail = customer_email?.trim() || user?.email || "";
-    const guests = Math.max(1, Number(guest_count) || 1);
+    const effectiveName =
+      (typeof customer_name === "string" && customer_name.trim()) ||
+      (typeof user?.user_metadata?.full_name === "string"
+        ? user.user_metadata.full_name.trim()
+        : "");
+    const effectivePhone =
+      (typeof customer_phone === "string" && customer_phone.trim()) ||
+      user?.phone ||
+      "";
+    const effectiveEmail =
+      (typeof user?.email === "string" && user.email) ||
+      (typeof customer_email === "string" ? customer_email.trim() : "");
+    const guests = Number(guest_count);
+    const isValidDate = (value: unknown) => {
+      if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const date = new Date(`${value}T00:00:00.000Z`);
+      return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+    };
 
-    if (!effectiveName || !effectivePhone || !start_date) {
+    if (
+      !effectiveName ||
+      !effectivePhone ||
+      !isValidDate(start_date) ||
+      start_date < new Date().toISOString().slice(0, 10)
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Required booking details (Name, Phone, and Start Date) are missing.",
+          error: "A valid name, phone number, and current or future start date are required.",
         },
+        { status: 400 }
+      );
+    }
+    if (
+      !Number.isInteger(guests) ||
+      guests < 1 ||
+      guests > 50 ||
+      (end_date && (!isValidDate(end_date) || end_date < start_date))
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Enter a valid guest count and date range." },
         { status: 400 }
       );
     }
@@ -48,24 +78,46 @@ export async function POST(request: Request) {
       query = query.eq("id", combo_pack_id);
     } else if (slug) {
       query = query.eq("slug", slug);
+    } else {
+      return NextResponse.json(
+        { success: false, error: "A combo package id or slug is required." },
+        { status: 400 }
+      );
     }
 
-    const { data: dbPack } = await query.maybeSingle();
-    const pack =
-      dbPack ||
-      DEFAULT_COMBO_PACKS.find(
-        (p) => p.id === combo_pack_id || p.slug === slug
-      );
+    const { data: pack, error: packError } = await query
+      .eq("is_active", true)
+      .maybeSingle();
 
+    if (packError) {
+      console.error("[POST /api/combo-packs/book] Package lookup error:", packError);
+      return NextResponse.json(
+        { success: false, error: "Unable to verify the selected combo package." },
+        { status: 500 }
+      );
+    }
     if (!pack) {
       return NextResponse.json(
-        { success: false, error: "Selected combo package was not found." },
+        { success: false, error: "Selected active combo package was not found." },
         { status: 404 }
       );
     }
 
-    // 2. Server-side price calculation
+    // 2. Fetch providers if assigned
     const priceInfo = calculateComboPrice(pack.base_price, pack.discount, guests);
+    const rawItems = pack.items ?? [];
+
+    const providerIds = [...new Set(rawItems.map((item: any) => item.provider_id as string).filter(Boolean))];
+    let providersById = new Map<string, any>();
+    if (providerIds.length > 0) {
+      const { data: providers, error: providersError } = await supabase
+        .from("providers")
+        .select("id, user_id, business_name, registration_status, is_verified, is_bookable")
+        .in("id", providerIds);
+      if (!providersError && providers) {
+        providersById = new Map(providers.map((provider) => [provider.id, provider]));
+      }
+    }
 
     // 3. Insert parent combo booking
     const parentPayload: Record<string, any> = {
@@ -101,34 +153,45 @@ export async function POST(request: Request) {
     }
 
     // 4. Insert child booking items
-    const rawItems = pack.items && pack.items.length > 0 ? pack.items : [
-      {
-        service_type: "Transport",
-        provider_name: "FaabCab",
-        provider_id: "6105241d-1d38-4274-b912-eea67f4c32b0",
-        service_id: "b72bf79e-3b1d-4af6-b326-a0f7940f1901",
-      },
-    ];
-
     const itemPriceSnapshot = Math.round(priceInfo.finalPrice / Math.max(1, rawItems.length));
     const childItemsPayload = rawItems.map((it: any) => ({
       combo_booking_id: parentBooking.id,
-      service_type: it.service_type || "Service",
+      service_type: it.service_type,
       service_id: it.service_id || null,
-      provider_id: it.provider_id || "6105241d-1d38-4274-b912-eea67f4c32b0",
-      provider_name: it.provider_name || (it.service_type === "Transport" ? "FaabCab" : "Service Provider"),
+      provider_id: it.provider_id,
+      provider_name: providersById.get(it.provider_id)?.business_name || null,
       provider_booking_status: "pending",
       service_status: "pending",
       price_snapshot: itemPriceSnapshot,
     }));
 
-    const { data: createdItems, error: itemsError } = await supabase
-      .from("combo_booking_items")
-      .insert(childItemsPayload)
-      .select();
+    let createdItems: any[] = [];
+    if (childItemsPayload.length > 0) {
+      const { data, error: itemsError } = await supabase
+        .from("combo_booking_items")
+        .insert(childItemsPayload)
+        .select();
 
-    if (itemsError) {
-      console.warn("[POST /api/combo-packs/book] Child items error:", itemsError);
+      if (itemsError) {
+        console.error("[POST /api/combo-packs/book] Child items error:", itemsError);
+        const { error: rollbackError } = await supabase
+          .from("combo_bookings")
+          .delete()
+          .eq("id", parentBooking.id);
+        if (rollbackError) {
+          console.error("[POST /api/combo-packs/book] Failed to roll back parent booking:", rollbackError);
+        }
+        return NextResponse.json(
+          {
+            success: false,
+            error: rollbackError
+              ? "Combo booking services could not be saved and the incomplete booking could not be rolled back."
+              : "Combo booking services could not be saved; the incomplete booking was rolled back.",
+          },
+          { status: 500 }
+        );
+      }
+      createdItems = data || [];
     }
 
     // 5. Notify assigned providers via public.notifications (Realtime triggers automatically)
@@ -142,14 +205,7 @@ export async function POST(request: Request) {
       );
 
       for (const provId of assignedProviderIds) {
-        // Find provider's user_id
-        const { data: provRow } = await supabase
-          .from("providers")
-          .select("id, user_id, business_name")
-          .eq("id", provId)
-          .maybeSingle();
-
-        const providerUserId = provRow?.user_id;
+        const providerUserId = providersById.get(provId as string)?.user_id;
         if (providerUserId) {
           await createNotificationServer({
             userId: providerUserId,
@@ -157,6 +213,7 @@ export async function POST(request: Request) {
             title: `🎁 New Combo Request: ${pack.name}`,
             message: `New booking for "${pack.name}" on ${start_date}.\nCustomer: ${effectiveName} (${effectivePhone})\nGuests: ${guests}\nAmount: ₹${priceInfo.finalPrice}`,
             type: "booking_new",
+            dedupeKey: `combo_booking_new:${parentBooking.id}:${providerUserId}`,
           });
         }
       }
@@ -167,7 +224,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
-        message: "Combo package booked successfully!",
+        message: "Combo package booking request created.",
         booking: {
           ...parentBooking,
           items: createdItems || childItemsPayload,

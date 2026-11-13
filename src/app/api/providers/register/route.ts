@@ -136,17 +136,58 @@ export async function POST(request: Request) {
 
         const sanitizedPhone = phone.replace(/\s+/g, "");
 
+        const { data: ownApplications, error: ownLookupError } = await supabase
+            .from("providers")
+            .select("id, registration_status")
+            .eq("user_id", user.id)
+            .order("submitted_at", { ascending: false })
+            .limit(1);
+
+        if (ownLookupError) {
+            throw ownLookupError;
+        }
+
+        const existingApplication = ownApplications?.[0] ?? null;
+
+        if (existingApplication && existingApplication.registration_status !== "rejected") {
+            const statusMessages: Record<string, string> = {
+                pending: "Your provider application is already under review.",
+                approved: "Your provider account is already registered and approved.",
+                suspended: "Your provider account is suspended. Please contact support.",
+            };
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: statusMessages[existingApplication.registration_status ?? ""] ?? "A provider application already exists for this account.",
+                    code: "DUPLICATE_APPLICATION",
+                },
+                { status: 409 }
+            );
+        }
+
+        // A rejected application may be resubmitted: it updates the same row
+        // back to pending instead of creating a duplicate provider record.
+        const isResubmission = Boolean(existingApplication);
+
         const [existingByEmail, existingByPhone] = await Promise.all([
-            supabase
-                .from("providers")
-                .select("id, email")
-                .eq("email", email)
-                .limit(1),
-            supabase
-                .from("providers")
-                .select("id, phone")
-                .eq("phone", sanitizedPhone)
-                .limit(1),
+            (() => {
+                let query = supabase
+                    .from("providers")
+                    .select("id, email")
+                    .eq("email", email)
+                    .limit(1);
+                if (existingApplication) query = query.neq("id", existingApplication.id);
+                return query;
+            })(),
+            (() => {
+                let query = supabase
+                    .from("providers")
+                    .select("id, phone")
+                    .eq("phone", sanitizedPhone)
+                    .limit(1);
+                if (existingApplication) query = query.neq("id", existingApplication.id);
+                return query;
+            })(),
         ]);
 
         if (existingByEmail.error) {
@@ -187,7 +228,38 @@ export async function POST(request: Request) {
             service_areas: serviceAreas,
             submitted_at: new Date().toISOString(),
             user_id: user.id,
+            admin_note: null,
         };
+
+        if (isResubmission) {
+            const { data, error } = await supabase
+                .from("providers")
+                .update(payload)
+                .eq("id", existingApplication!.id)
+                .eq("registration_status", "rejected")
+                .select()
+                .maybeSingle();
+
+            if (error) {
+                console.error("[POST /api/providers/register] resubmission error:", error);
+                return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+            }
+            if (!data) {
+                return NextResponse.json(
+                    { success: false, error: "Your application is no longer in a resubmittable state.", code: "APPLICATION_NOT_REJECTED" },
+                    { status: 409 }
+                );
+            }
+
+            return NextResponse.json(
+                {
+                    success: true,
+                    message: "Application resubmitted successfully.",
+                    provider: data,
+                },
+                { status: 200 }
+            );
+        }
 
         const { data, error } = await supabase
             .from("providers")

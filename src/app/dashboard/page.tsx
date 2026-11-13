@@ -56,13 +56,13 @@ const normalizeBooking = (raw: Record<string, any>, fallbackEmail?: string) => {
   const providerName =
     raw.provider_name ||
     raw.providerName ||
-    (raw.provider_id === "faab-cab" || raw.provider_uuid ? "FaabCab" : "Service Provider");
+    (raw.provider_id === "faab-cab" ? "FaabCab" : "Provider listing");
   const service =
     raw.transport_service ||
     raw.transportService ||
     raw.service_type ||
     raw.serviceType ||
-    "Transport";
+    "Service not specified";
 
   return {
     ...raw,
@@ -75,9 +75,9 @@ const normalizeBooking = (raw: Record<string, any>, fallbackEmail?: string) => {
     customer_name: raw.customer_name || raw.customerName || "Customer",
     customer_phone: raw.customer_phone || raw.customerPhone || "",
     customer_email: raw.customer_email || raw.customerEmail || fallbackEmail || "",
-    created_at: raw.created_at || raw.createdAt || new Date().toISOString(),
+    created_at: raw.created_at || raw.createdAt || null,
     travel_date: raw.travel_date || raw.event_date || raw.travelDate || raw.eventDate || "Not specified",
-    pickup_time: raw.pickup_time || raw.pickupTime || raw.event_time || raw.eventTime || "Flexible",
+    pickup_time: raw.pickup_time || raw.pickupTime || raw.event_time || raw.eventTime || "Not specified",
     pickup_location: raw.pickup_location || raw.pickupLocation,
     drop_location: raw.drop_location || raw.dropLocation,
     passenger_count: raw.passenger_count ?? raw.passengerCount ?? raw.guest_count ?? raw.guestCount ?? null,
@@ -93,6 +93,11 @@ export default function ClientDashboard() {
   const [bookings, setBookings] = useState<Record<string, any>[]>([]);
   const [comboBookings, setComboBookings] = useState<Record<string, any>[]>([]);
   const [payments, setPayments] = useState<Record<string, any>[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [comboBookingsLoading, setComboBookingsLoading] = useState(true);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
+  const [comboBookingsError, setComboBookingsError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"all" | "services" | "combos" | "payments">("all");
   const [selectedBooking, setSelectedBooking] = useState<Record<string, any> | null>(null);
   const [selectedComboBooking, setSelectedComboBooking] = useState<Record<string, any> | null>(null);
@@ -120,63 +125,73 @@ export default function ClientDashboard() {
     }
 
     const loadProfile = async () => {
-      const profileResponse = await fetch(`/api/profile?user_id=${encodeURIComponent(user.id)}`);
-      const profileData = await profileResponse.json();
-      if (profileResponse.ok && profileData.success && profileData.profile) {
-        setProfile(profileData.profile);
-      } else {
-        setProfile({
+      try {
+        const profileResponse = await fetch(`/api/profile?user_id=${encodeURIComponent(user.id)}`);
+        const profileData = await profileResponse.json();
+        if (!profileResponse.ok || !profileData.success) {
+          throw new Error(profileData.error || "Profile details could not be loaded.");
+        }
+        setProfile(profileData.profile || {
           id: user.id,
           full_name: null,
           email: user.email,
           phone: null,
-          city: "Jamui, Bihar",
+          city: null,
           avatar_url: null,
         });
+        setProfileError(null);
+      } catch (error) {
+        console.error("[ClientDashboard] Failed to load profile:", error);
+        setProfileError(error instanceof Error ? error.message : "Profile details could not be loaded.");
       }
     };
 
     const loadBookings = async () => {
+      setBookingsLoading(true);
       try {
         const params = new URLSearchParams({ client_id: user.id });
         const primaryRes = await fetch(`/api/bookings?${params.toString()}`);
         const primaryData = await primaryRes.json();
-
-        let nextBookings: Record<string, any>[] = [];
-
-        if (primaryRes.ok && primaryData.success && Array.isArray(primaryData.bookings)) {
-          nextBookings = primaryData.bookings.map((booking: Record<string, any>) =>
-            normalizeBooking(booking, user.email)
-          );
+        if (!primaryRes.ok || !primaryData.success || !Array.isArray(primaryData.bookings)) {
+          throw new Error(primaryData.error || "Service bookings could not be loaded.");
         }
+
+        let nextBookings = primaryData.bookings as Record<string, any>[];
 
         if (!nextBookings.length && user.email) {
           const fallbackRes = await fetch(`/api/bookings?email=${encodeURIComponent(user.email)}`);
           const fallbackData = await fallbackRes.json();
-          if (fallbackRes.ok && fallbackData.success && Array.isArray(fallbackData.bookings)) {
-            nextBookings = fallbackData.bookings.map((booking: Record<string, any>) =>
-              normalizeBooking(booking, user.email)
-            );
+          if (!fallbackRes.ok || !fallbackData.success || !Array.isArray(fallbackData.bookings)) {
+            throw new Error(fallbackData.error || "Service bookings could not be loaded.");
           }
+          nextBookings = fallbackData.bookings;
         }
 
-        setBookings(nextBookings);
+        setBookings(nextBookings.map((booking) => normalizeBooking(booking, user.email)));
+        setBookingsError(null);
       } catch (error) {
-        console.warn("[ClientDashboard] Failed to load bookings:", error);
-        setBookings([]);
+        console.error("[ClientDashboard] Failed to load bookings:", error);
+        setBookingsError(error instanceof Error ? error.message : "Service bookings could not be loaded.");
+      } finally {
+        setBookingsLoading(false);
       }
     };
 
     const loadComboBookings = async () => {
+      setComboBookingsLoading(true);
       try {
         const res = await fetch("/api/combo-packs/bookings");
         const data = await res.json();
-        if (res.ok && data.success && Array.isArray(data.bookings)) {
-          setComboBookings(data.bookings);
+        if (!res.ok || !data.success || !Array.isArray(data.bookings)) {
+          throw new Error(data.error || "Combo bookings could not be loaded.");
         }
+        setComboBookings(data.bookings);
+        setComboBookingsError(null);
       } catch (error) {
-        console.warn("[ClientDashboard] Failed to load combo bookings:", error);
-        setComboBookings([]);
+        console.error("[ClientDashboard] Failed to load combo bookings:", error);
+        setComboBookingsError(error instanceof Error ? error.message : "Combo bookings could not be loaded.");
+      } finally {
+        setComboBookingsLoading(false);
       }
     };
 
@@ -201,6 +216,21 @@ export default function ClientDashboard() {
     // Set up Supabase realtime subscription for payments
     if (user) {
       const supabase = createClient();
+      const bookingsSubscription = supabase
+        .channel(`client-bookings-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "bookings",
+            filter: `client_id=eq.${user.id}`,
+          },
+          () => {
+            loadBookings();
+          }
+        )
+        .subscribe();
       const paymentsSubscription = supabase
         .channel('payments-changes')
         .on(
@@ -222,14 +252,20 @@ export default function ClientDashboard() {
         .subscribe();
 
       return () => {
+        supabase.removeChannel(bookingsSubscription);
         supabase.removeChannel(paymentsSubscription);
       };
     }
   }, [loading, role, router, user]);
 
-  const handleSignOut = () => {
-    signOut();
-    router.replace("/");
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.replace("/");
+    } catch (error) {
+      console.error("[ClientDashboard] Failed to sign out:", error);
+      window.alert("Logout could not be completed. Please try again.");
+    }
   };
 
   const handleProfileUpdated = (updatedProfile: ClientProfile) => {
@@ -320,7 +356,7 @@ export default function ClientDashboard() {
   };
 
   const profileDisplayName = profile?.full_name || user?.email?.split("@")?.[0] || "Client";
-  const profileCity = profile?.city || "Jamui, Bihar";
+  const profileCity = profile?.city || "Not set";
   const profilePhone = profile?.phone || "Not set";
   const profileInitial = (profile?.full_name || profile?.email || user?.email || "C").charAt(0).toUpperCase();
 
@@ -352,7 +388,7 @@ export default function ClientDashboard() {
     <main className="flex-1 py-10 bg-zinc-50 min-h-[90vh]">
       <Container>
         <div className="space-y-6">
-          <header className="relative overflow-hidden rounded-[28px] border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+          <header id="profile" className="relative overflow-hidden rounded-[28px] border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
             <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
             <div className="absolute -bottom-20 -left-16 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl" />
 
@@ -437,8 +473,22 @@ export default function ClientDashboard() {
             </div>
           </header>
 
+          {(profileError || bookingsError || comboBookingsError) && (
+            <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <p className="font-bold">Some dashboard information could not be loaded.</p>
+              <ul className="mt-2 list-inside list-disc">
+                {profileError && <li>Profile: {profileError}</li>}
+                {bookingsError && <li>Bookings: {bookingsError}</li>}
+                {comboBookingsError && <li>Combo bookings: {comboBookingsError}</li>}
+              </ul>
+              <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-lg border border-red-300 px-3 py-1.5 font-bold hover:bg-red-100">
+                Reload dashboard
+              </button>
+            </div>
+          )}
+
           {/* Navigation Filter Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <div id="bookings" className="flex items-center gap-2 overflow-x-auto pb-1">
             <button
               onClick={() => setActiveTab("all")}
               className={`rounded-2xl px-4 py-2 text-xs font-bold transition-all border ${
@@ -496,13 +546,15 @@ export default function ClientDashboard() {
                 </Link>
               </div>
 
-              {comboBookings.length === 0 ? (
+              {comboBookingsLoading ? (
+                <p role="status" className="rounded-xl bg-white p-6 text-center text-sm font-semibold text-zinc-500">Loading combo bookings…</p>
+              ) : comboBookings.length === 0 ? (
                 activeTab === "combos" && (
                   <div className="rounded-[28px] border-2 border-dashed border-zinc-200 bg-white p-10 text-center shadow-sm">
                     <div className="mb-4 text-5xl">🎁</div>
                     <div className="text-xl font-black text-zinc-900">No combo bookings yet</div>
                     <p className="mx-auto mt-2 max-w-sm text-sm font-medium text-zinc-500">
-                      Bundle cab transport, verified hotel stays, and guides for maximum savings.
+                      Browse active combo packages to see their actual included services and listed prices.
                     </p>
                     <div className="mt-6 flex justify-center">
                       <Link href="/combo-packs">
@@ -573,10 +625,10 @@ export default function ClientDashboard() {
                               </div>
                             </div>
 
-                            {/* Included Services Itemized Realtime Status */}
+                            {/* Included services and current recorded statuses */}
                             <div className="mt-4 rounded-2xl border border-zinc-200/80 bg-white/90 p-4">
                               <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2.5">
-                                Included Services & Live Provider Responses:
+                                Included Services &amp; Provider Responses:
                               </div>
                               <div className="grid gap-2 sm:grid-cols-2">
                                 {cb.items && cb.items.length > 0 ? (
@@ -671,7 +723,9 @@ export default function ClientDashboard() {
                 </h2>
               </div>
 
-            {bookings.length === 0 ? (
+            {bookingsLoading ? (
+              <p role="status" className="rounded-xl bg-white p-6 text-center text-sm font-semibold text-zinc-500">Loading bookings…</p>
+            ) : bookings.length === 0 && !bookingsError ? (
               <div className="rounded-[28px] border-2 border-dashed border-zinc-200 bg-white p-10 text-center shadow-sm">
                 <div className="mb-4 text-5xl">🚗</div>
                 <div className="text-xl font-black text-zinc-900">No bookings yet</div>

@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedUser } from '@/lib/server';
+import { requireAdminAccess } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   try {
-    const { user } = await getAuthenticatedUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
-    }
-
-    // TODO: Add admin role check
-    // For now, allow all authenticated users (restrict in production)
+    const authorization = await requireAdminAccess();
+    if (!authorization.authorized) return authorization.response;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');

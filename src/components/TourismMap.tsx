@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { TourismPlace } from "@/lib/constants";
+import type { Map, Marker } from "leaflet";
+import {
+  getTourismPlaceMapUrl,
+  getVerifiedTourismCoordinates,
+  TourismPlace,
+} from "@/lib/constants";
 import "leaflet/dist/leaflet.css";
 
 interface Props {
@@ -18,8 +23,7 @@ export default function TourismMap({
   zoom = 10,
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapInstanceRef = useRef<any>(null);
+  const mapInstanceRef = useRef<Map | null>(null);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
@@ -28,15 +32,6 @@ export default function TourismMap({
     // Dynamic import to prevent SSR breakages
     import("leaflet").then((L) => {
       if (cancelled || !mapContainerRef.current || mapInstanceRef.current) return;
-
-      // Fix default marker asset paths
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      });
 
       const map = L.map(mapContainerRef.current!, {
         center: [centerLat, centerLng],
@@ -55,10 +50,11 @@ export default function TourismMap({
       }).addTo(map);
 
       // Add markers for all places that have coordinates
-      const validMarkers: any[] = [];
+      const validMarkers: Marker[] = [];
 
       places.forEach((place) => {
-        if (!place.lat || !place.lng) return;
+        const coordinates = getVerifiedTourismCoordinates(place);
+        if (!coordinates) return;
 
         const isNature = place.category.toLowerCase().includes("nature");
         const isReligious = place.category.toLowerCase().includes("religious");
@@ -89,33 +85,30 @@ export default function TourismMap({
           popupAnchor: [0, -32],
         });
 
-        const marker = L.marker([place.lat, place.lng], { icon: customIcon }).addTo(map);
+        const marker = L.marker([coordinates.lat, coordinates.lng], { icon: customIcon }).addTo(map);
+        const popupContent = document.createElement("div");
+        popupContent.style.cssText = "font-family:sans-serif;min-width:180px;padding:4px;color:#111";
 
-        const popupContent = `
-          <div style="font-family: sans-serif; min-width: 180px; padding: 4px; color: #111;">
-            <div style="font-size: 11px; font-weight: 700; color: ${pinColor}; text-transform: uppercase;">
-              ${place.category}
-            </div>
-            <div style="font-size: 14px; font-weight: 800; margin: 2px 0 4px; color: #000;">
-              ${place.name}
-            </div>
-            <div style="font-size: 11px; color: #555; line-height: 1.3; margin-bottom: 6px;">
-              ${place.description.slice(0, 90)}...
-            </div>
-            <a 
-              href="${place.lat !== undefined && place.lng !== undefined
-            ? `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
-            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + " " + place.district + " Bihar")}`
-          }" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style="display: inline-block; font-size: 11px; font-weight: 700; color: #0284c7; text-decoration: none;"
-            >
-              Get Directions &rarr;
-            </a>
-          </div>
-        `;
+        const categoryLabel = document.createElement("div");
+        categoryLabel.textContent = place.category;
+        categoryLabel.style.cssText = `font-size:11px;font-weight:700;color:${pinColor};text-transform:uppercase`;
 
+        const name = document.createElement("div");
+        name.textContent = place.name;
+        name.style.cssText = "font-size:14px;font-weight:800;margin:2px 0 4px;color:#000";
+
+        const description = document.createElement("div");
+        description.textContent = place.description.slice(0, 90);
+        description.style.cssText = "font-size:11px;color:#555;line-height:1.3;margin-bottom:6px";
+
+        const mapLink = document.createElement("a");
+        mapLink.href = getTourismPlaceMapUrl(place);
+        mapLink.target = "_blank";
+        mapLink.rel = "noopener noreferrer";
+        mapLink.textContent = "Get Directions →";
+        mapLink.style.cssText = "display:inline-block;font-size:11px;font-weight:700;color:#0284c7;text-decoration:none";
+
+        popupContent.append(categoryLabel, name, description, mapLink);
         marker.bindPopup(popupContent);
         validMarkers.push(marker);
       });
